@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">紀念日倒數</string>
+    <string name="widget_title">最近紀念日</string>
+    <string name="widget_description">顯示下一個即將到來的紀念日</string>
+</resources>
