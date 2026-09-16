@@ -46,6 +46,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -337,42 +338,75 @@ private fun AnniversaryCard(
                 }
                 Spacer(Modifier.width(14.dp))
                 Column(modifier = Modifier.weight(1f)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            anniversary.name,
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(1f),
-                        )
-                        if (anniversary.repeatRule != RepeatRule.NONE) {
-                            Spacer(Modifier.width(6.dp))
-                            Tag(anniversary.repeatRule.label(), eventColor)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.Top,
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                anniversary.name,
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                            Spacer(Modifier.height(4.dp))
+                            Text(
+                                buildString {
+                                    append(occurrence.dateTime.toLocalDate().format(dateFormatter))
+                                    if (anniversary.hasTime) {
+                                        append("　${occurrence.dateTime.toLocalTime().format(timeFormatter)}")
+                                    }
+                                },
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+                        Spacer(Modifier.width(8.dp))
+                        Column(horizontalAlignment = Alignment.End) {
+                            if (anniversary.repeatRule != RepeatRule.NONE) {
+                                Tag(anniversary.repeatRule.label(), eventColor)
+                                Spacer(Modifier.height(4.dp))
+                            }
+                            CategoryTag(anniversary.category, eventColor)
                         }
                     }
-                    Spacer(Modifier.height(4.dp))
-                    Text(
-                        buildString {
-                            append(occurrence.dateTime.toLocalDate().format(dateFormatter))
-                            if (anniversary.hasTime) append("　${occurrence.dateTime.toLocalTime().format(timeFormatter)}")
-                        },
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
                     Spacer(Modifier.height(7.dp))
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Tag(anniversary.category.label(), eventColor)
-                        Spacer(Modifier.width(8.dp))
-                        Text(
-                            anniversaryCountdownText(anniversary, nowEpochMillis),
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.SemiBold,
-                            color = if (expired) MaterialTheme.colorScheme.onSurfaceVariant else eventColor,
-                        )
-                    }
+                    Text(
+                        anniversaryCountdownText(anniversary, nowEpochMillis),
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = if (expired) MaterialTheme.colorScheme.onSurfaceVariant else eventColor,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun CategoryTag(category: AnniversaryCategory, color: Color) {
+    Surface(
+        color = color.copy(alpha = 0.14f),
+        contentColor = color,
+        shape = RoundedCornerShape(50),
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                painter = painterResource(category.iconRes()),
+                contentDescription = null,
+                modifier = Modifier.size(14.dp),
+            )
+            Spacer(Modifier.width(4.dp))
+            Text(category.label(), style = MaterialTheme.typography.labelSmall)
         }
     }
 }
@@ -386,15 +420,6 @@ private fun Tag(text: String, color: Color) {
     ) {
         Text(text, modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp), style = MaterialTheme.typography.labelSmall)
     }
-}
-
-internal fun AnniversaryCategory.label(): String = when (this) {
-    AnniversaryCategory.BIRTHDAY -> "生日"
-    AnniversaryCategory.LOVE -> "愛情"
-    AnniversaryCategory.FAMILY -> "家庭"
-    AnniversaryCategory.TRAVEL -> "旅行"
-    AnniversaryCategory.WORK -> "工作"
-    AnniversaryCategory.OTHER -> "其他"
 }
 
 internal fun RepeatRule.label(): String = when (this) {

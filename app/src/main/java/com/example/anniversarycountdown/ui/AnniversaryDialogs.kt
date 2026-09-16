@@ -54,6 +54,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -224,7 +225,13 @@ fun AnniversaryEditorScreen(
             item {
                 OptionTitle("分類")
                 Spacer(Modifier.height(6.dp))
-                ChoiceGrid(AnniversaryCategory.entries, category, AnniversaryCategory::label) { category = it }
+                ChoiceGrid(
+                    options = AnniversaryCategory.entries,
+                    selected = category,
+                    label = AnniversaryCategory::label,
+                    iconRes = AnniversaryCategory::iconRes,
+                    onSelected = { category = it },
+                )
             }
             item {
                 OptionTitle("紀念日識別色")
@@ -511,6 +518,7 @@ private fun <T> ChoiceGrid(
     options: List<T>,
     selected: T,
     label: (T) -> String,
+    iconRes: (T) -> Int,
     onSelected: (T) -> Unit,
 ) {
     options.chunked(3).forEachIndexed { index, row ->
@@ -521,6 +529,13 @@ private fun <T> ChoiceGrid(
                     selected = selected == option,
                     onClick = { onSelected(option) },
                     label = { Text(label(option), maxLines = 1) },
+                    leadingIcon = {
+                        Icon(
+                            painter = painterResource(iconRes(option)),
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp),
+                        )
+                    },
                     modifier = Modifier.weight(1f),
                     colors = FilterChipDefaults.filterChipColors(
                         selectedContainerColor = MaterialTheme.colorScheme.primary,

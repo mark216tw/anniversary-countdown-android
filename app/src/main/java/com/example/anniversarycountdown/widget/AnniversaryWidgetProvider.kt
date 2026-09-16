@@ -12,15 +12,17 @@ import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.RectF
 import android.os.Bundle
+import android.view.View
 import android.widget.RemoteViews
 import com.example.anniversarycountdown.MainActivity
 import com.example.anniversarycountdown.R
-import com.example.anniversarycountdown.data.AnniversaryCategory
 import com.example.anniversarycountdown.data.AnniversaryRepository
 import com.example.anniversarycountdown.data.DisplayMode
 import com.example.anniversarycountdown.data.RepeatRule
 import com.example.anniversarycountdown.data.SettingsRepository
 import com.example.anniversarycountdown.ui.anniversaryCountdownText
+import com.example.anniversarycountdown.ui.iconRes
+import com.example.anniversarycountdown.ui.label
 import com.example.anniversarycountdown.ui.sortedAnniversaries
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -29,6 +31,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlin.math.roundToInt
 
 class AnniversaryWidgetProvider : AppWidgetProvider() {
     override fun onUpdate(context: Context, manager: AppWidgetManager, appWidgetIds: IntArray) {
@@ -123,8 +126,14 @@ object AnniversaryWidgetUpdater {
                 views.setTextViewText(R.id.widget_date, "點一下新增重要日子")
                 views.setTextViewText(R.id.widget_countdown, "開始記錄期待")
                 views.setTextViewText(R.id.widget_meta, "")
+                views.setViewVisibility(R.id.widget_meta_row, View.GONE)
             } else {
                 val occurrence = nearest.occurrence(now)
+                views.setViewVisibility(R.id.widget_meta_row, View.VISIBLE)
+                views.setImageViewBitmap(
+                    R.id.widget_category_icon,
+                    createCategoryIcon(context, nearest.category.iconRes(), palette.accent),
+                )
                 views.setTextViewText(R.id.widget_name, nearest.name)
                 views.setTextViewText(
                     R.id.widget_date,
@@ -134,7 +143,7 @@ object AnniversaryWidgetUpdater {
                 views.setTextViewText(R.id.widget_countdown, anniversaryCountdownText(nearest, now))
                 views.setTextViewText(
                     R.id.widget_meta,
-                    listOf(nearest.category.widgetLabel(), nearest.repeatRule.widgetLabel())
+                    listOf(nearest.category.label(), nearest.repeatRule.widgetLabel())
                         .filter { it.isNotEmpty() }
                         .joinToString(" · "),
                 )
@@ -178,17 +187,22 @@ object AnniversaryWidgetUpdater {
         return bitmap
     }
 
+    private fun createCategoryIcon(context: Context, iconRes: Int, tint: Int): Bitmap {
+        val size = (CATEGORY_ICON_SIZE_DP * context.resources.displayMetrics.density).roundToInt()
+            .coerceAtLeast(1)
+        val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+        bitmap.density = context.resources.displayMetrics.densityDpi
+        requireNotNull(context.getDrawable(iconRes)).mutate().apply {
+            setTint(tint)
+            setBounds(0, 0, size, size)
+            draw(Canvas(bitmap))
+        }
+        return bitmap
+    }
+
     private const val CORNER_RADIUS = 24f
     private const val MAX_BACKGROUND_SIZE = 512
-}
-
-private fun AnniversaryCategory.widgetLabel(): String = when (this) {
-    AnniversaryCategory.BIRTHDAY -> "生日"
-    AnniversaryCategory.LOVE -> "愛情"
-    AnniversaryCategory.FAMILY -> "家庭"
-    AnniversaryCategory.TRAVEL -> "旅行"
-    AnniversaryCategory.WORK -> "工作"
-    AnniversaryCategory.OTHER -> "其他"
+    private const val CATEGORY_ICON_SIZE_DP = 14f
 }
 
 private fun RepeatRule.widgetLabel(): String = when (this) {
