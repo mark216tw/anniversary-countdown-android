@@ -367,7 +367,7 @@ private fun AnniversaryCard(
                         Spacer(Modifier.width(8.dp))
                         Column(horizontalAlignment = Alignment.End) {
                             if (anniversary.repeatRule != RepeatRule.NONE) {
-                                Tag(anniversary.repeatRule.label(), eventColor)
+                                RepeatTag(anniversary.repeatRule.label())
                                 Spacer(Modifier.height(4.dp))
                             }
                             CategoryTag(anniversary.category, eventColor)
@@ -412,10 +412,10 @@ private fun CategoryTag(category: AnniversaryCategory, color: Color) {
 }
 
 @Composable
-private fun Tag(text: String, color: Color) {
+private fun RepeatTag(text: String) {
     Surface(
-        color = color.copy(alpha = 0.14f),
-        contentColor = color,
+        color = MaterialTheme.colorScheme.tertiaryContainer,
+        contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
         shape = RoundedCornerShape(50),
     ) {
         Text(text, modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp), style = MaterialTheme.typography.labelSmall)
