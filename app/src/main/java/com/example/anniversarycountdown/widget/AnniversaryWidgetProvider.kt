@@ -7,7 +7,11 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.res.Configuration
-import android.graphics.Color
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Paint
+import android.graphics.RectF
+import android.os.Bundle
 import android.widget.RemoteViews
 import com.example.anniversarycountdown.MainActivity
 import com.example.anniversarycountdown.R
@@ -52,6 +56,23 @@ class AnniversaryWidgetProvider : AppWidgetProvider() {
         }
     }
 
+    override fun onAppWidgetOptionsChanged(
+        context: Context,
+        manager: AppWidgetManager,
+        appWidgetId: Int,
+        newOptions: Bundle,
+    ) {
+        super.onAppWidgetOptionsChanged(context, manager, appWidgetId, newOptions)
+        val pendingResult = goAsync()
+        CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
+            try {
+                AnniversaryWidgetUpdater.update(context, manager, intArrayOf(appWidgetId))
+            } finally {
+                pendingResult.finish()
+            }
+        }
+    }
+
     private companion object {
         val UPDATE_ACTIONS = setOf(
             Intent.ACTION_DATE_CHANGED,
@@ -77,28 +98,25 @@ object AnniversaryWidgetUpdater {
         val nearest = sortedAnniversaries(anniversaries, now)
             .firstOrNull { !it.isExpired(now) }
             ?: sortedAnniversaries(anniversaries, now).firstOrNull()
-        val accent = settings.themeSeedArgb
         val darkMode = when (settings.displayMode) {
             DisplayMode.SYSTEM -> context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK ==
                 Configuration.UI_MODE_NIGHT_YES
             DisplayMode.LIGHT -> false
             DisplayMode.DARK -> true
         }
+        val palette = widgetColorPalette(
+            seedArgb = widgetSeedArgb(nearest, settings.themeSeedArgb),
+            darkMode = darkMode,
+        )
 
         ids.forEach { id ->
             val views = RemoteViews(context.packageName, R.layout.anniversary_widget)
-            views.setInt(
-                R.id.widget_root,
-                "setBackgroundResource",
-                if (darkMode) R.drawable.widget_background_dark else R.drawable.widget_background_light,
-            )
-            val primaryText = if (darkMode) Color.WHITE else Color.rgb(43, 35, 38)
-            val secondaryText = if (darkMode) Color.rgb(210, 200, 204) else Color.rgb(105, 91, 96)
-            views.setTextColor(R.id.widget_title, accent)
-            views.setTextColor(R.id.widget_name, primaryText)
-            views.setTextColor(R.id.widget_date, secondaryText)
-            views.setTextColor(R.id.widget_countdown, accent)
-            views.setTextColor(R.id.widget_meta, secondaryText)
+            views.setImageViewBitmap(R.id.widget_background, createBackground(manager, id, palette))
+            views.setTextColor(R.id.widget_title, palette.accent)
+            views.setTextColor(R.id.widget_name, palette.primaryText)
+            views.setTextColor(R.id.widget_date, palette.secondaryText)
+            views.setTextColor(R.id.widget_countdown, palette.accent)
+            views.setTextColor(R.id.widget_meta, palette.secondaryText)
 
             if (nearest == null) {
                 views.setTextViewText(R.id.widget_name, "還沒有紀念日")
@@ -133,6 +151,35 @@ object AnniversaryWidgetUpdater {
             manager.updateAppWidget(id, views)
         }
     }
+
+    private fun createBackground(
+        manager: AppWidgetManager,
+        appWidgetId: Int,
+        palette: WidgetColorPalette,
+    ): Bitmap {
+        val options = manager.getAppWidgetOptions(appWidgetId)
+        val width = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 250)
+            .coerceIn(1, MAX_BACKGROUND_SIZE)
+        val height = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 110)
+            .coerceIn(1, MAX_BACKGROUND_SIZE)
+        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bitmap)
+        val bounds = RectF(0.5f, 0.5f, width - 0.5f, height - 0.5f)
+
+        canvas.drawRoundRect(bounds, CORNER_RADIUS, CORNER_RADIUS, Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = palette.background
+            style = Paint.Style.FILL
+        })
+        canvas.drawRoundRect(bounds, CORNER_RADIUS, CORNER_RADIUS, Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = palette.outline
+            style = Paint.Style.STROKE
+            strokeWidth = 1f
+        })
+        return bitmap
+    }
+
+    private const val CORNER_RADIUS = 24f
+    private const val MAX_BACKGROUND_SIZE = 512
 }
 
 private fun AnniversaryCategory.widgetLabel(): String = when (this) {
