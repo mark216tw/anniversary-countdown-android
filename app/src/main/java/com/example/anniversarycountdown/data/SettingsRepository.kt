@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.example.anniversarycountdown.widget.AnniversaryWidgetUpdater
@@ -21,25 +22,41 @@ class SettingsRepository(private val context: Context) {
         }
         .map { preferences ->
             AppSettings(
+                displayMode = preferences[DISPLAY_MODE]
+                    ?.let { runCatching { DisplayMode.valueOf(it) }.getOrDefault(DisplayMode.SYSTEM) }
+                    ?: preferences[DARK_MODE]?.let { if (it) DisplayMode.DARK else DisplayMode.LIGHT }
+                    ?: DisplayMode.SYSTEM,
                 themeColor = preferences[THEME_COLOR]
                     ?.let { runCatching { AppThemeColor.valueOf(it) }.getOrNull() }
                     ?: AppThemeColor.BERRY,
-                darkMode = preferences[DARK_MODE] ?: false,
+                customThemeColorArgb = preferences[CUSTOM_THEME_COLOR_ARGB],
             )
         }
 
     suspend fun setThemeColor(themeColor: AppThemeColor) {
-        context.settingsDataStore.edit { it[THEME_COLOR] = themeColor.name }
+        context.settingsDataStore.edit {
+            it[THEME_COLOR] = themeColor.name
+            it.remove(CUSTOM_THEME_COLOR_ARGB)
+        }
         AnniversaryWidgetUpdater.updateAll(context)
     }
 
-    suspend fun setDarkMode(enabled: Boolean) {
-        context.settingsDataStore.edit { it[DARK_MODE] = enabled }
+    suspend fun setCustomThemeColor(colorArgb: Int) {
+        context.settingsDataStore.edit {
+            it[CUSTOM_THEME_COLOR_ARGB] = colorArgb or 0xFF000000.toInt()
+        }
+        AnniversaryWidgetUpdater.updateAll(context)
+    }
+
+    suspend fun setDisplayMode(displayMode: DisplayMode) {
+        context.settingsDataStore.edit { it[DISPLAY_MODE] = displayMode.name }
         AnniversaryWidgetUpdater.updateAll(context)
     }
 
     private companion object {
         val THEME_COLOR = stringPreferencesKey("theme_color")
+        val CUSTOM_THEME_COLOR_ARGB = intPreferencesKey("custom_theme_color_argb")
+        val DISPLAY_MODE = stringPreferencesKey("display_mode")
         val DARK_MODE = booleanPreferencesKey("dark_mode")
     }
 }

@@ -18,7 +18,14 @@ enum class LeapDayRule { FEBRUARY_28, MARCH_1 }
 enum class AnniversaryCategory { BIRTHDAY, LOVE, FAMILY, TRAVEL, WORK, OTHER }
 
 @Serializable
-enum class AnniversaryColor { ROSE, ORANGE, SUNSHINE, MINT, OCEAN, GRAPE }
+enum class AnniversaryColor(val argb: Int) {
+    ROSE(0xFFE65378.toInt()),
+    ORANGE(0xFFF07A3C.toInt()),
+    SUNSHINE(0xFFD19A00.toInt()),
+    MINT(0xFF36A56B.toInt()),
+    OCEAN(0xFF258DA4.toInt()),
+    GRAPE(0xFF8964C4.toInt()),
+}
 
 data class AnniversaryOccurrence(
     val dateTime: LocalDateTime,
@@ -38,8 +45,12 @@ data class Anniversary(
     val leapDayRule: LeapDayRule = LeapDayRule.FEBRUARY_28,
     val category: AnniversaryCategory = AnniversaryCategory.OTHER,
     val color: AnniversaryColor = AnniversaryColor.ROSE,
+    val customColorArgb: Int? = null,
     val fixedZoneId: String? = null,
 ) {
+    val effectiveColorArgb: Int
+        get() = customColorArgb ?: color.argb
+
     val date: LocalDate
         get() = LocalDate.ofEpochDay(dateEpochDay)
 

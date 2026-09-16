@@ -1,5 +1,6 @@
 package com.example.anniversarycountdown.ui
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -22,6 +23,8 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -29,6 +32,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.ExitToApp
+import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -49,7 +55,6 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.anniversarycountdown.data.Anniversary
 import com.example.anniversarycountdown.data.AnniversaryCategory
-import com.example.anniversarycountdown.data.AnniversaryColor
 import com.example.anniversarycountdown.data.RepeatRule
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -59,15 +64,19 @@ internal val dateFormatter: DateTimeFormatter =
     DateTimeFormatter.ofPattern("yyyy 年 M 月 d 日", Locale.TAIWAN)
 internal val timeFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("HH:mm", Locale.TAIWAN)
 
+private sealed interface AppDestination {
+    data object Main : AppDestination
+    data object Settings : AppDestination
+    data class Editor(val anniversary: Anniversary?) : AppDestination
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AnniversaryApp(viewModel: AnniversaryViewModel) {
+fun AnniversaryApp(viewModel: AnniversaryViewModel, onMoveToBackground: () -> Unit) {
     val anniversaries by viewModel.anniversaries.collectAsStateWithLifecycle()
     val settings by viewModel.settings.collectAsStateWithLifecycle()
     var nowEpochMillis by remember { mutableLongStateOf(System.currentTimeMillis()) }
-    var editorOpen by remember { mutableStateOf(false) }
-    var settingsOpen by remember { mutableStateOf(false) }
-    var editingAnniversary by remember { mutableStateOf<Anniversary?>(null) }
+    var destination by remember { mutableStateOf<AppDestination>(AppDestination.Main) }
     var deleteCandidate by remember { mutableStateOf<Anniversary?>(null) }
 
     LaunchedEffect(Unit) {
@@ -82,112 +91,50 @@ fun AnniversaryApp(viewModel: AnniversaryViewModel) {
         sortedAnniversaries(anniversaries, nowEpochMillis)
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = {
-                    Column {
-                        Text("紀念日倒數", fontWeight = FontWeight.Bold)
-                        if (anniversaries.isNotEmpty()) {
-                            Text(
-                                "${anniversaries.size} 個重要日子",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                    }
-                },
-                actions = {
-                    TextButton(onClick = { settingsOpen = true }) { Text("設定") }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background,
-                ),
-            )
-        },
-        floatingActionButton = {
-            FloatingActionButton(
-                onClick = {
-                    editingAnniversary = null
-                    editorOpen = true
-                },
-                modifier = Modifier.semantics { contentDescription = "新增紀念日" },
-                shape = CircleShape,
-            ) {
-                Text("+", fontSize = 28.sp, fontWeight = FontWeight.Light)
-            }
-        },
-    ) { innerPadding ->
-        if (sorted.isEmpty()) {
-            EmptyState(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding)
-                    .padding(horizontal = 32.dp),
-                onAdd = {
-                    editingAnniversary = null
-                    editorOpen = true
-                },
-            )
-        } else {
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding),
-                contentPadding = PaddingValues(16.dp, 12.dp, 16.dp, 96.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                item {
-                    Text(
-                        "把重要日子放在心上，期待就有了形狀。",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(start = 4.dp, bottom = 4.dp),
-                    )
-                }
-                items(sorted, key = { it.id }) { anniversary ->
-                    AnniversaryCard(anniversary, nowEpochMillis) {
-                        editingAnniversary = anniversary
-                        editorOpen = true
-                    }
-                }
-            }
-        }
+    BackHandler(enabled = destination != AppDestination.Main) {
+        destination = AppDestination.Main
     }
 
-    if (editorOpen) {
-        AnniversaryEditorDialog(
-            anniversary = editingAnniversary,
-            onDismiss = { editorOpen = false },
+    when (val currentDestination = destination) {
+        AppDestination.Main -> MainScreen(
+            anniversaries = anniversaries,
+            sorted = sorted,
+            nowEpochMillis = nowEpochMillis,
+            onOpenSettings = { destination = AppDestination.Settings },
+            onMoveToBackground = onMoveToBackground,
+            onAdd = { destination = AppDestination.Editor(null) },
+            onEdit = { destination = AppDestination.Editor(it) },
+        )
+        AppDestination.Settings -> SettingsScreen(
+            settings = settings,
+            onThemeColorChange = viewModel::setThemeColor,
+            onCustomThemeColorChange = viewModel::setCustomThemeColor,
+            onDisplayModeChange = viewModel::setDisplayMode,
+            onDismiss = { destination = AppDestination.Main },
+        )
+        is AppDestination.Editor -> AnniversaryEditorScreen(
+            anniversary = currentDestination.anniversary,
+            onDismiss = { destination = AppDestination.Main },
             onSave = { draft ->
                 viewModel.save(
-                    editingAnniversary,
+                    currentDestination.anniversary,
                     draft.name,
                     draft.date,
                     draft.time,
                     draft.repeatRule,
                     draft.leapDayRule,
                     draft.category,
-                    draft.color,
+                    draft.colorArgb,
                     draft.fixedZoneId,
                 )
-                editorOpen = false
+                destination = AppDestination.Main
             },
-            onRequestDelete = editingAnniversary?.let { anniversary ->
+            onRequestDelete = currentDestination.anniversary?.let { anniversary ->
                 {
-                    editorOpen = false
+                    destination = AppDestination.Main
                     deleteCandidate = anniversary
                 }
             },
-        )
-    }
-
-    if (settingsOpen) {
-        SettingsDialog(
-            settings = settings,
-            onThemeColorChange = viewModel::setThemeColor,
-            onDarkModeChange = viewModel::setDarkMode,
-            onDismiss = { settingsOpen = false },
         )
     }
 
@@ -207,6 +154,88 @@ fun AnniversaryApp(viewModel: AnniversaryViewModel) {
             },
         )
     }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun MainScreen(
+    anniversaries: List<Anniversary>,
+    sorted: List<Anniversary>,
+    nowEpochMillis: Long,
+    onOpenSettings: () -> Unit,
+    onMoveToBackground: () -> Unit,
+    onAdd: () -> Unit,
+    onEdit: (Anniversary) -> Unit,
+) {
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = {
+                    Column {
+                        Text("紀念日提醒", fontWeight = FontWeight.Bold)
+                        if (anniversaries.isNotEmpty()) {
+                            Text(
+                                "${anniversaries.size} 個重要日子",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                },
+                actions = {
+                    IconButton(onClick = onOpenSettings) {
+                        Icon(Icons.Rounded.Settings, contentDescription = "設定")
+                    }
+                    IconButton(onClick = onMoveToBackground) {
+                        Icon(Icons.AutoMirrored.Rounded.ExitToApp, contentDescription = "將 APP 切換到背景")
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background,
+                ),
+            )
+        },
+        floatingActionButton = {
+            FloatingActionButton(
+                onClick = onAdd,
+                modifier = Modifier.semantics { contentDescription = "新增紀念日" },
+                shape = CircleShape,
+            ) {
+                Text("+", fontSize = 28.sp, fontWeight = FontWeight.Light)
+            }
+        },
+    ) { innerPadding ->
+        if (sorted.isEmpty()) {
+            EmptyState(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding)
+                    .padding(horizontal = 32.dp),
+                onAdd = onAdd,
+            )
+        } else {
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding),
+                contentPadding = PaddingValues(16.dp, 12.dp, 16.dp, 96.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                item {
+                    Text(
+                        "把重要日子放在心上，期待就有了形狀。",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(start = 4.dp, bottom = 4.dp),
+                    )
+                }
+                items(sorted, key = { it.id }) { anniversary ->
+                    AnniversaryCard(anniversary, nowEpochMillis) { onEdit(anniversary) }
+                }
+            }
+        }
+    }
+
 }
 
 @Composable
@@ -257,7 +286,7 @@ private fun AnniversaryCard(
 ) {
     val occurrence = anniversary.occurrence(nowEpochMillis)
     val expired = anniversary.isExpired(nowEpochMillis)
-    val eventColor = anniversary.color.composeColor()
+    val eventColor = Color(anniversary.effectiveColorArgb)
     val lessThanAWeek = occurrence.epochMillis in nowEpochMillis..(nowEpochMillis + 7 * 86_400_000L)
     val containerColor = when {
         expired -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.42f)
@@ -372,13 +401,4 @@ internal fun RepeatRule.label(): String = when (this) {
     RepeatRule.NONE -> "不重複"
     RepeatRule.MONTHLY -> "每月"
     RepeatRule.YEARLY -> "每年"
-}
-
-internal fun AnniversaryColor.composeColor(): Color = when (this) {
-    AnniversaryColor.ROSE -> Color(0xFFE65378)
-    AnniversaryColor.ORANGE -> Color(0xFFF07A3C)
-    AnniversaryColor.SUNSHINE -> Color(0xFFD19A00)
-    AnniversaryColor.MINT -> Color(0xFF36A56B)
-    AnniversaryColor.OCEAN -> Color(0xFF258DA4)
-    AnniversaryColor.GRAPE -> Color(0xFF8964C4)
 }

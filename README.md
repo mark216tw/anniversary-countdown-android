@@ -1,6 +1,6 @@
-# 紀念日倒數 Android
+# 紀念日提醒 Android
 
-一款簡單、容易操作的 Android 紀念日倒數 App。可記錄生日、週年、旅行與其他重要日期，並在主畫面及桌面小工具查看下一個即將到來的紀念日。
+一款簡單、容易操作的 Android 紀念日提醒 App。可記錄生日、週年、旅行與其他重要日期，並在主畫面及桌面小工具查看下一個即將到來的紀念日。
 
 ## 功能特色
 
@@ -9,9 +9,9 @@
 - 支援不重複、每月重複與每年重複。
 - 依下一次到期時間排序，最近的紀念日優先顯示。
 - 分類包含生日、愛情、家庭、旅行、工作與其他。
-- 每個紀念日可選擇獨立主題顏色。
-- 提供莓果、橘子、向日葵、幸運草、湖水與葡萄六種 App 主題。
-- 支援深色模式，狀態列與底部系統導覽列會同步切換。
+- 每個紀念日可透過彩虹色相滑桿設定獨立識別色。
+- 提供暖陽黃、珊瑚紅、活力橘、青草綠、天空藍與葡萄紫六種 App 主題，亦可自訂色相。
+- 顯示模式支援跟隨系統、淺色與深色，狀態列與底部系統導覽列會同步切換。
 - 桌面小工具顯示最近的紀念日，資料變更時會立即更新。
 - 資料儲存在裝置本機，不需建立帳號。
 
@@ -20,14 +20,14 @@
 - Android 8.0（API 26）以上。
 - 桌面小工具的外觀可能因手機品牌與桌面啟動器而略有不同。
 
-## 安裝 Debug APK
+## 安裝 Prerelease APK
 
 1. 前往本專案的 [Releases](https://github.com/mark216tw/anniversary-countdown-android/releases) 頁面。
-2. 開啟標示為 Pre-release 的 `v1.0.0-debug`。
-3. 下載 `app-debug.apk` 並在 Android 裝置上安裝。
+2. 開啟標示為 Pre-release 的 `v1.0.0-prerelease`。
+3. 下載 `app-prerelease.apk` 並在 Android 裝置上安裝。
 
 > [!WARNING]
-> Release 內提供的是開發測試用 Debug APK，不是正式發行版本。它使用 Debug 簽章、未進行正式發布最佳化，僅供功能測試，請勿視為正式版散布。
+> Release 內提供的是測試發行版本，不是正式發行版本。它已啟用 R8 與資源壓縮，但仍使用 Android Debug 金鑰簽署，僅供功能測試，請勿視為正式版散布。
 
 ## 基本操作
 
@@ -35,15 +35,15 @@
 2. 輸入名稱並選擇日期，可設定時間、重複方式、分類、顏色及時區。
 3. 按下「儲存」後，紀念日會依下一次到期時間自動排序。
 4. 點選既有卡片可編輯或刪除。
-5. 點選主畫面右上角「設定」，可即時切換 App 主題色與深色模式。
+5. 點選主畫面右上角的齒輪圖示，可即時切換 App 主題色與顯示模式。
 
-編輯視窗不會因點擊外部或按下系統返回鍵而意外關閉，必須明確選擇「取消」、「儲存」或刪除。
+設定與編輯紀念日使用整頁介面；按下左上角或系統返回鍵可回到主畫面。
 
 ## 桌面小工具
 
 1. 長按 Android 桌面空白處。
 2. 開啟「小工具」或「Widgets」。
-3. 找到「紀念日倒數」。
+3. 找到「紀念日提醒」。
 4. 將小工具拖曳至桌面。
 
 小工具會顯示最近一筆未到期紀念日，並在紀念日、主題設定變更及系統定期更新時重新整理。點選小工具可開啟 App。
@@ -70,19 +70,19 @@
 Windows 建置指令：
 
 ```powershell
-.\gradlew.bat testDebugUnitTest assembleDebug lintDebug
+.\gradlew.bat testPrereleaseUnitTest lintPrerelease assemblePrerelease
 ```
 
 macOS 或 Linux：
 
 ```bash
-./gradlew testDebugUnitTest assembleDebug lintDebug
+./gradlew testPrereleaseUnitTest lintPrerelease assemblePrerelease
 ```
 
-建置後的 Debug APK 位於：
+建置後的 Prerelease APK 位於：
 
 ```text
-app/build/outputs/apk/debug/app-debug.apk
+app/build/outputs/apk/prerelease/app-prerelease.apk
 ```
 
 ## 測試
@@ -99,7 +99,7 @@ app/build/outputs/apk/debug/app-debug.apk
 
 ## 隱私
 
-目前版本不需要網路權限，紀念日與 App 設定皆保存在裝置本機。移除 App 或清除應用程式資料可能會刪除所有紀念日，使用前請自行評估 Debug 版本的資料保存風險。
+目前版本不需要網路權限，紀念日與 App 設定皆保存在裝置本機。移除 App 或清除應用程式資料可能會刪除所有紀念日，使用前請自行評估 Prerelease 版本的資料保存風險。
 
 ## 授權
 

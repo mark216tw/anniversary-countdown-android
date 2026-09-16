@@ -2,52 +2,73 @@ package com.example.anniversarycountdown.ui
 
 import android.app.DatePickerDialog
 import android.app.TimePickerDialog
+import android.graphics.Color as AndroidColor
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.example.anniversarycountdown.BuildConfig
 import com.example.anniversarycountdown.data.Anniversary
 import com.example.anniversarycountdown.data.AnniversaryCategory
 import com.example.anniversarycountdown.data.AnniversaryColor
 import com.example.anniversarycountdown.data.AppSettings
 import com.example.anniversarycountdown.data.AppThemeColor
+import com.example.anniversarycountdown.data.DisplayMode
 import com.example.anniversarycountdown.data.LeapDayRule
 import com.example.anniversarycountdown.data.RepeatRule
-import com.example.anniversarycountdown.ui.theme.themePalette
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.ZoneId
@@ -59,12 +80,13 @@ data class AnniversaryDraft(
     val repeatRule: RepeatRule,
     val leapDayRule: LeapDayRule,
     val category: AnniversaryCategory,
-    val color: AnniversaryColor,
+    val colorArgb: Int,
     val fixedZoneId: String?,
 )
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AnniversaryEditorDialog(
+fun AnniversaryEditorScreen(
     anniversary: Anniversary?,
     onDismiss: () -> Unit,
     onSave: (AnniversaryDraft) -> Unit,
@@ -87,20 +109,53 @@ fun AnniversaryEditorDialog(
     var category by remember(anniversary?.id) {
         mutableStateOf(anniversary?.category ?: AnniversaryCategory.OTHER)
     }
-    var color by remember(anniversary?.id) { mutableStateOf(anniversary?.color ?: AnniversaryColor.ROSE) }
+    var colorArgb by remember(anniversary?.id) {
+        mutableIntStateOf(anniversary?.effectiveColorArgb ?: AnniversaryColor.ROSE.argb)
+    }
     var fixedTimeZone by remember(anniversary?.id) { mutableStateOf(anniversary?.fixedZoneId != null) }
     val storedZoneId = remember(anniversary?.id) {
         anniversary?.fixedZoneId ?: ZoneId.systemDefault().id
     }
 
-    AlertDialog(
-        onDismissRequest = {},
-        title = { Text(if (anniversary == null) "新增紀念日" else "編輯紀念日") },
-        text = {
-            Column(
-                modifier = Modifier.verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(14.dp),
-            ) {
+    fun save() {
+        onSave(
+            AnniversaryDraft(
+                name = name.trim(),
+                date = date,
+                time = if (includesTime) time else null,
+                repeatRule = repeatRule,
+                leapDayRule = leapDayRule,
+                category = category,
+                colorArgb = colorArgb,
+                fixedZoneId = if (fixedTimeZone) storedZoneId else null,
+            ),
+        )
+    }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text(if (anniversary == null) "新增紀念日" else "編輯紀念日") },
+                navigationIcon = {
+                    IconButton(onClick = onDismiss) {
+                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "返回")
+                    }
+                },
+                actions = {
+                    TextButton(onClick = ::save, enabled = name.isNotBlank()) { Text("儲存") }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
+            )
+        },
+    ) { innerPadding ->
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding),
+            contentPadding = PaddingValues(start = 20.dp, top = 12.dp, end = 20.dp, bottom = 36.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            item {
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
@@ -109,6 +164,8 @@ fun AnniversaryEditorDialog(
                     placeholder = { Text("例如：小安的生日") },
                     singleLine = true,
                 )
+            }
+            item {
                 PickerRow("日期", date.format(dateFormatter)) {
                     DatePickerDialog(
                         context,
@@ -118,29 +175,33 @@ fun AnniversaryEditorDialog(
                         date.dayOfMonth,
                     ).show()
                 }
+            }
+            item {
                 OptionTitle("重複")
-                ChoiceRow(
-                    options = RepeatRule.entries,
-                    selected = repeatRule,
-                    label = RepeatRule::label,
-                    onSelected = { repeatRule = it },
-                )
-                if (repeatRule == RepeatRule.YEARLY && date.monthValue == 2 && date.dayOfMonth == 29) {
+                Spacer(Modifier.height(6.dp))
+                ChoiceRow(RepeatRule.entries, repeatRule, RepeatRule::label) { repeatRule = it }
+            }
+            if (repeatRule == RepeatRule.YEARLY && date.monthValue == 2 && date.dayOfMonth == 29) {
+                item {
                     OptionTitle("非閏年的 2 月 29 日")
+                    Spacer(Modifier.height(6.dp))
                     ChoiceRow(
-                        options = LeapDayRule.entries,
-                        selected = leapDayRule,
-                        label = { if (it == LeapDayRule.FEBRUARY_28) "2 月 28 日" else "3 月 1 日" },
-                        onSelected = { leapDayRule = it },
-                    )
+                        LeapDayRule.entries,
+                        leapDayRule,
+                        { if (it == LeapDayRule.FEBRUARY_28) "2 月 28 日" else "3 月 1 日" },
+                    ) { leapDayRule = it }
                 }
+            }
+            item {
                 ToggleRow(
                     title = "指定時間",
                     subtitle = "未指定時，當天會顯示「就是今天」",
                     checked = includesTime,
                     onCheckedChange = { includesTime = it },
                 )
-                if (includesTime) {
+            }
+            if (includesTime) {
+                item {
                     PickerRow("時間", time.format(timeFormatter)) {
                         TimePickerDialog(
                             context,
@@ -151,128 +212,271 @@ fun AnniversaryEditorDialog(
                         ).show()
                     }
                 }
+            }
+            item {
                 ToggleRow(
                     title = "固定時區",
                     subtitle = if (fixedTimeZone) storedZoneId else "跟隨手機目前時區",
                     checked = fixedTimeZone,
                     onCheckedChange = { fixedTimeZone = it },
                 )
+            }
+            item {
                 OptionTitle("分類")
-                ChoiceGrid(
-                    options = AnniversaryCategory.entries,
-                    selected = category,
-                    label = AnniversaryCategory::label,
-                    onSelected = { category = it },
+                Spacer(Modifier.height(6.dp))
+                ChoiceGrid(AnniversaryCategory.entries, category, AnniversaryCategory::label) { category = it }
+            }
+            item {
+                OptionTitle("紀念日識別色")
+                Spacer(Modifier.height(8.dp))
+                HueColorPicker(
+                    colorArgb = colorArgb,
+                    selected = true,
+                    onColorChange = { colorArgb = it },
+                    onColorChangeFinished = {},
                 )
-                OptionTitle("紀念日顏色")
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                ) {
-                    AnniversaryColor.entries.forEach { option ->
-                        ColorChoice(
-                            color = option.composeColor(),
-                            selected = color == option,
-                            onClick = { color = option },
-                        )
-                    }
-                }
-                if (onRequestDelete != null) {
+            }
+            if (onRequestDelete != null) {
+                item {
                     HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.25f))
-                    TextButton(onClick = onRequestDelete, modifier = Modifier.align(Alignment.End)) {
+                    TextButton(onClick = onRequestDelete, modifier = Modifier.fillMaxWidth()) {
                         Text("刪除此紀念日", color = MaterialTheme.colorScheme.error)
                     }
                 }
             }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = {
-                    onSave(
-                        AnniversaryDraft(
-                            name.trim(),
-                            date,
-                            if (includesTime) time else null,
-                            repeatRule,
-                            leapDayRule,
-                            category,
-                            color,
-                            if (fixedTimeZone) storedZoneId else null,
-                        ),
-                    )
-                },
-                enabled = name.isNotBlank(),
-            ) { Text("儲存") }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } },
-    )
+        }
+    }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsDialog(
+fun SettingsScreen(
     settings: AppSettings,
     onThemeColorChange: (AppThemeColor) -> Unit,
-    onDarkModeChange: (Boolean) -> Unit,
+    onCustomThemeColorChange: (Int) -> Unit,
+    onDisplayModeChange: (DisplayMode) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("App 設定") },
-        text = {
-            Column(
-                modifier = Modifier.verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
-            ) {
-                Text("主題色彩", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                Text(
-                    "點選後立即套用",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                AppThemeColor.entries.chunked(3).forEach { row ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceAround,
-                    ) {
+    var customPreviewArgb by remember(settings.themeSeedArgb) { mutableIntStateOf(settings.themeSeedArgb) }
+    val presetOrder = listOf(
+        AppThemeColor.SUNFLOWER,
+        AppThemeColor.BERRY,
+        AppThemeColor.TANGERINE,
+        AppThemeColor.CLOVER,
+        AppThemeColor.LAGOON,
+        AppThemeColor.VIOLET,
+    )
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("設定") },
+                navigationIcon = {
+                    IconButton(onClick = onDismiss) {
+                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "返回")
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
+            )
+        },
+    ) { innerPadding ->
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding),
+            contentPadding = PaddingValues(start = 20.dp, top = 12.dp, end = 20.dp, bottom = 32.dp),
+            verticalArrangement = Arrangement.spacedBy(18.dp),
+        ) {
+            item {
+                SectionTitle("顯示模式")
+                Spacer(Modifier.height(10.dp))
+                DisplayModeSelector(settings.displayMode, onDisplayModeChange)
+            }
+            item { HorizontalDivider() }
+            item {
+                SectionTitle("主題色彩")
+                Spacer(Modifier.height(12.dp))
+                presetOrder.chunked(3).forEachIndexed { index, row ->
+                    if (index > 0) Spacer(Modifier.height(12.dp))
+                    Row(modifier = Modifier.fillMaxWidth()) {
                         row.forEach { option ->
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                ColorChoice(
-                                    color = themePalette(option).primary,
-                                    selected = settings.themeColor == option,
-                                    size = 44,
-                                    onClick = { onThemeColorChange(option) },
-                                )
-                                Spacer(Modifier.height(4.dp))
-                                Text(option.label(), style = MaterialTheme.typography.labelSmall)
-                            }
+                            ThemeColorOption(
+                                option = option,
+                                selected = settings.customThemeColorArgb == null && settings.themeColor == option,
+                                onClick = { onThemeColorChange(option) },
+                                modifier = Modifier.weight(1f),
+                            )
                         }
                     }
                 }
-                HorizontalDivider()
-                ToggleRow(
-                    title = "深色模式",
-                    subtitle = "同步調整狀態列與手機導覽列",
-                    checked = settings.darkMode,
-                    onCheckedChange = onDarkModeChange,
+                Spacer(Modifier.height(16.dp))
+                HueColorPicker(
+                    colorArgb = customPreviewArgb,
+                    selected = settings.customThemeColorArgb != null,
+                    onColorChange = { customPreviewArgb = it },
+                    onColorChangeFinished = { onCustomThemeColorChange(customPreviewArgb) },
                 )
-                HorizontalDivider()
-                Text("日期與時區規則", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+            }
+            item { HorizontalDivider() }
+            item {
+                SectionTitle("日期與時區規則")
+                Spacer(Modifier.height(10.dp))
                 RuleText("每月遇到不存在的日期（如 2 月 31 日），改用當月最後一天。")
                 RuleText("每年 2 月 29 日可選擇非閏年落在 2 月 28 日或 3 月 1 日。")
                 RuleText("跟隨手機時區會維持當地相同時間；固定時區則在旅行時維持原地實際到期時刻。")
                 RuleText("日光節約時間造成不存在的時間時，系統會順延到下一個有效時間。")
             }
-        },
-        confirmButton = { TextButton(onClick = onDismiss) { Text("完成") } },
-    )
+            item { HorizontalDivider() }
+            item {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 12.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    SectionTitle("關於")
+                    Spacer(Modifier.height(10.dp))
+                    Text("版本 ${BuildConfig.VERSION_NAME}", style = MaterialTheme.typography.bodyMedium)
+                    Text(
+                        "Build ${BuildConfig.BUILD_ID}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DisplayModeSelector(selected: DisplayMode, onSelected: (DisplayMode) -> Unit) {
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        DisplayMode.entries.forEach { mode ->
+            val isSelected = selected == mode
+            Surface(
+                onClick = { onSelected(mode) },
+                modifier = Modifier.weight(1f),
+                shape = RoundedCornerShape(14.dp),
+                color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent,
+                contentColor = if (isSelected) {
+                    MaterialTheme.colorScheme.onPrimaryContainer
+                } else {
+                    MaterialTheme.colorScheme.onSurface
+                },
+                border = BorderStroke(
+                    1.dp,
+                    if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
+                ),
+            ) {
+                Text(
+                    text = mode.label(),
+                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 12.dp),
+                    textAlign = TextAlign.Center,
+                    maxLines = 1,
+                    overflow = TextOverflow.Clip,
+                    style = MaterialTheme.typography.labelLarge,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ThemeColorOption(
+    option: AppThemeColor,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier.clickable(onClick = onClick),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        ColorChoice(Color(option.argb), selected, 26, onClick)
+        Spacer(Modifier.height(5.dp))
+        Text(option.label(), style = MaterialTheme.typography.labelSmall, maxLines = 1)
+    }
+}
+
+@Composable
+private fun HueColorPicker(
+    colorArgb: Int,
+    selected: Boolean,
+    onColorChange: (Int) -> Unit,
+    onColorChangeFinished: () -> Unit,
+) {
+    var hue by remember(colorArgb) { mutableFloatStateOf(colorHue(colorArgb)) }
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        ColorChoice(Color(colorArgb), selected, 26, {})
+        Spacer(Modifier.width(14.dp))
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .height(48.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(12.dp)
+                    .clip(RoundedCornerShape(50))
+                    .background(Brush.horizontalGradient(HUE_COLORS)),
+            )
+            Slider(
+                value = hue,
+                onValueChange = {
+                    hue = it
+                    onColorChange(hueColor(it))
+                },
+                onValueChangeFinished = onColorChangeFinished,
+                valueRange = 0f..360f,
+                colors = SliderDefaults.colors(
+                    thumbColor = Color(hueColor(hue)),
+                    activeTrackColor = Color.Transparent,
+                    inactiveTrackColor = Color.Transparent,
+                    activeTickColor = Color.Transparent,
+                    inactiveTickColor = Color.Transparent,
+                ),
+                modifier = Modifier.semantics { contentDescription = "色相" },
+            )
+        }
+    }
+}
+
+private val HUE_COLORS = listOf(
+    Color.Red,
+    Color.Yellow,
+    Color.Green,
+    Color.Cyan,
+    Color.Blue,
+    Color.Magenta,
+    Color.Red,
+)
+
+internal fun hueColor(hue: Float): Int = AndroidColor.HSVToColor(
+    floatArrayOf(hue.coerceIn(0f, 360f), 0.72f, 0.72f),
+)
+
+internal fun colorHue(argb: Int): Float {
+    val hsv = FloatArray(3)
+    AndroidColor.colorToHSV(argb, hsv)
+    return hsv[0]
 }
 
 @Composable
 private fun RuleText(text: String) {
-    Row {
+    Row(modifier = Modifier.padding(vertical = 3.dp)) {
         Text("•", color = MaterialTheme.colorScheme.primary)
         Text(text, modifier = Modifier.padding(start = 8.dp), style = MaterialTheme.typography.bodySmall)
     }
+}
+
+@Composable
+private fun SectionTitle(text: String) {
+    Text(text, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
 }
 
 @Composable
@@ -292,9 +496,7 @@ private fun <T> ChoiceRow(
             FilterChip(
                 selected = selected == option,
                 onClick = { onSelected(option) },
-                label = {
-                    Text(if (selected == option) "✓ ${label(option)}" else label(option))
-                },
+                label = { Text(label(option), maxLines = 1) },
                 colors = FilterChipDefaults.filterChipColors(
                     selectedContainerColor = MaterialTheme.colorScheme.primary,
                     selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
@@ -311,15 +513,15 @@ private fun <T> ChoiceGrid(
     label: (T) -> String,
     onSelected: (T) -> Unit,
 ) {
-    options.chunked(3).forEach { row ->
+    options.chunked(3).forEachIndexed { index, row ->
+        if (index > 0) Spacer(Modifier.height(6.dp))
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             row.forEach { option ->
                 FilterChip(
                     selected = selected == option,
                     onClick = { onSelected(option) },
-                    label = {
-                        Text(if (selected == option) "✓ ${label(option)}" else label(option))
-                    },
+                    label = { Text(label(option), maxLines = 1) },
+                    modifier = Modifier.weight(1f),
                     colors = FilterChipDefaults.filterChipColors(
                         selectedContainerColor = MaterialTheme.colorScheme.primary,
                         selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
@@ -356,7 +558,7 @@ private fun ToggleRow(
 private fun ColorChoice(
     color: Color,
     selected: Boolean,
-    size: Int = 36,
+    size: Int,
     onClick: () -> Unit,
 ) {
     Surface(
@@ -368,7 +570,11 @@ private fun ColorChoice(
     ) {
         Box(contentAlignment = Alignment.Center) {
             if (selected) {
-                Text("✓", color = Color.White, fontWeight = FontWeight.Bold)
+                Text(
+                    "✓",
+                    color = if (color.luminance() > 0.45f) Color.Black else Color.White,
+                    fontWeight = FontWeight.Bold,
+                )
             }
         }
     }
@@ -397,11 +603,17 @@ private fun PickerRow(label: String, value: String, onClick: () -> Unit) {
     }
 }
 
+private fun DisplayMode.label(): String = when (this) {
+    DisplayMode.SYSTEM -> "跟隨系統"
+    DisplayMode.LIGHT -> "淺色"
+    DisplayMode.DARK -> "深色"
+}
+
 private fun AppThemeColor.label(): String = when (this) {
-    AppThemeColor.BERRY -> "莓果"
-    AppThemeColor.TANGERINE -> "橘子"
-    AppThemeColor.SUNFLOWER -> "向日葵"
-    AppThemeColor.CLOVER -> "幸運草"
-    AppThemeColor.LAGOON -> "湖水"
-    AppThemeColor.VIOLET -> "葡萄"
+    AppThemeColor.SUNFLOWER -> "暖陽黃"
+    AppThemeColor.BERRY -> "珊瑚紅"
+    AppThemeColor.TANGERINE -> "活力橘"
+    AppThemeColor.CLOVER -> "青草綠"
+    AppThemeColor.LAGOON -> "天空藍"
+    AppThemeColor.VIOLET -> "葡萄紫"
 }

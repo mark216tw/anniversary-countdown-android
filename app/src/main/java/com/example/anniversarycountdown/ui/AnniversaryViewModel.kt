@@ -9,6 +9,7 @@ import com.example.anniversarycountdown.data.AnniversaryCategory
 import com.example.anniversarycountdown.data.AnniversaryColor
 import com.example.anniversarycountdown.data.AppSettings
 import com.example.anniversarycountdown.data.AppThemeColor
+import com.example.anniversarycountdown.data.DisplayMode
 import com.example.anniversarycountdown.data.LeapDayRule
 import com.example.anniversarycountdown.data.RepeatRule
 import com.example.anniversarycountdown.data.SettingsRepository
@@ -43,7 +44,7 @@ class AnniversaryViewModel(application: Application) : AndroidViewModel(applicat
         repeatRule: RepeatRule,
         leapDayRule: LeapDayRule,
         category: AnniversaryCategory,
-        color: AnniversaryColor,
+        colorArgb: Int,
         fixedZoneId: String?,
     ) {
         val anniversary = Anniversary(
@@ -56,7 +57,8 @@ class AnniversaryViewModel(application: Application) : AndroidViewModel(applicat
             repeatRule = repeatRule,
             leapDayRule = leapDayRule,
             category = category,
-            color = color,
+            color = existing?.color ?: AnniversaryColor.ROSE,
+            customColorArgb = colorArgb or 0xFF000000.toInt(),
             fixedZoneId = fixedZoneId,
         )
         viewModelScope.launch { repository.upsert(anniversary) }
@@ -70,7 +72,12 @@ class AnniversaryViewModel(application: Application) : AndroidViewModel(applicat
         viewModelScope.launch { settingsRepository.setThemeColor(themeColor) }
     }
 
-    fun setDarkMode(enabled: Boolean) {
-        viewModelScope.launch { settingsRepository.setDarkMode(enabled) }
+    fun setCustomThemeColor(colorArgb: Int) {
+        viewModelScope.launch { settingsRepository.setCustomThemeColor(colorArgb) }
     }
+
+    fun setDisplayMode(displayMode: DisplayMode) {
+        viewModelScope.launch { settingsRepository.setDisplayMode(displayMode) }
+    }
+
 }

@@ -6,13 +6,14 @@ import android.appwidget.AppWidgetProvider
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.content.res.Configuration
 import android.graphics.Color
 import android.widget.RemoteViews
 import com.example.anniversarycountdown.MainActivity
 import com.example.anniversarycountdown.R
 import com.example.anniversarycountdown.data.AnniversaryCategory
 import com.example.anniversarycountdown.data.AnniversaryRepository
-import com.example.anniversarycountdown.data.AppThemeColor
+import com.example.anniversarycountdown.data.DisplayMode
 import com.example.anniversarycountdown.data.RepeatRule
 import com.example.anniversarycountdown.data.SettingsRepository
 import com.example.anniversarycountdown.ui.anniversaryCountdownText
@@ -39,7 +40,7 @@ class AnniversaryWidgetProvider : AppWidgetProvider() {
 
     override fun onReceive(context: Context, intent: Intent) {
         super.onReceive(context, intent)
-        if (intent.action in DATE_ACTIONS) {
+        if (intent.action in UPDATE_ACTIONS) {
             val pendingResult = goAsync()
             CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
                 try {
@@ -52,10 +53,11 @@ class AnniversaryWidgetProvider : AppWidgetProvider() {
     }
 
     private companion object {
-        val DATE_ACTIONS = setOf(
+        val UPDATE_ACTIONS = setOf(
             Intent.ACTION_DATE_CHANGED,
             Intent.ACTION_TIME_CHANGED,
             Intent.ACTION_TIMEZONE_CHANGED,
+            Intent.ACTION_CONFIGURATION_CHANGED,
         )
     }
 }
@@ -75,17 +77,23 @@ object AnniversaryWidgetUpdater {
         val nearest = sortedAnniversaries(anniversaries, now)
             .firstOrNull { !it.isExpired(now) }
             ?: sortedAnniversaries(anniversaries, now).firstOrNull()
-        val accent = settings.themeColor.widgetColor()
+        val accent = settings.themeSeedArgb
+        val darkMode = when (settings.displayMode) {
+            DisplayMode.SYSTEM -> context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK ==
+                Configuration.UI_MODE_NIGHT_YES
+            DisplayMode.LIGHT -> false
+            DisplayMode.DARK -> true
+        }
 
         ids.forEach { id ->
             val views = RemoteViews(context.packageName, R.layout.anniversary_widget)
             views.setInt(
                 R.id.widget_root,
                 "setBackgroundResource",
-                if (settings.darkMode) R.drawable.widget_background_dark else R.drawable.widget_background_light,
+                if (darkMode) R.drawable.widget_background_dark else R.drawable.widget_background_light,
             )
-            val primaryText = if (settings.darkMode) Color.WHITE else Color.rgb(43, 35, 38)
-            val secondaryText = if (settings.darkMode) Color.rgb(210, 200, 204) else Color.rgb(105, 91, 96)
+            val primaryText = if (darkMode) Color.WHITE else Color.rgb(43, 35, 38)
+            val secondaryText = if (darkMode) Color.rgb(210, 200, 204) else Color.rgb(105, 91, 96)
             views.setTextColor(R.id.widget_title, accent)
             views.setTextColor(R.id.widget_name, primaryText)
             views.setTextColor(R.id.widget_date, secondaryText)
@@ -125,15 +133,6 @@ object AnniversaryWidgetUpdater {
             manager.updateAppWidget(id, views)
         }
     }
-}
-
-private fun AppThemeColor.widgetColor(): Int = when (this) {
-    AppThemeColor.BERRY -> Color.rgb(183, 62, 98)
-    AppThemeColor.TANGERINE -> Color.rgb(224, 100, 53)
-    AppThemeColor.SUNFLOWER -> Color.rgb(168, 127, 0)
-    AppThemeColor.CLOVER -> Color.rgb(50, 132, 87)
-    AppThemeColor.LAGOON -> Color.rgb(22, 124, 145)
-    AppThemeColor.VIOLET -> Color.rgb(121, 82, 179)
 }
 
 private fun AnniversaryCategory.widgetLabel(): String = when (this) {

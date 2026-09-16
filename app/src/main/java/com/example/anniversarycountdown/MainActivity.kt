@@ -4,6 +4,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
@@ -11,6 +12,7 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.anniversarycountdown.data.DisplayMode
 import com.example.anniversarycountdown.ui.AnniversaryApp
 import com.example.anniversarycountdown.ui.AnniversaryViewModel
 import com.example.anniversarycountdown.ui.theme.AnniversaryCountdownTheme
@@ -22,12 +24,17 @@ class MainActivity : ComponentActivity() {
         setContent {
             val viewModel: AnniversaryViewModel = viewModel()
             val settings by viewModel.settings.collectAsStateWithLifecycle()
+            val darkTheme = when (settings.displayMode) {
+                DisplayMode.SYSTEM -> isSystemInDarkTheme()
+                DisplayMode.LIGHT -> false
+                DisplayMode.DARK -> true
+            }
             AnniversaryCountdownTheme(
-                themeColor = settings.themeColor,
-                darkTheme = settings.darkMode,
+                seedArgb = settings.themeSeedArgb,
+                darkTheme = darkTheme,
             ) {
-                SystemBarStyle(settings.darkMode)
-                AnniversaryApp(viewModel)
+                SystemBarStyle(darkTheme)
+                AnniversaryApp(viewModel, onMoveToBackground = { moveTaskToBack(true) })
             }
         }
     }
