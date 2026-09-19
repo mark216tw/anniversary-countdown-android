@@ -1,6 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">紀念日提醒</string>
-    <string name="widget_title">最近紀念日</string>
-    <string name="widget_description">顯示下一個即將到來的紀念日</string>
+    <string name="widget_title">紀念日</string>
+    <string name="widget_description">顯示最近一個紀念日</string>
+    <string name="two_widget_title">紀念日</string>
+    <string name="two_widget_description">以 4×2 版面顯示最近兩個未到期紀念日</string>
+    <string name="two_widget_empty">尚無未到期紀念日，點一下開啟 App 新增</string>
 </resources>

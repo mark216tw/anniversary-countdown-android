@@ -16,7 +16,9 @@ import android.view.View
 import android.widget.RemoteViews
 import com.example.anniversarycountdown.MainActivity
 import com.example.anniversarycountdown.R
+import com.example.anniversarycountdown.data.Anniversary
 import com.example.anniversarycountdown.data.AnniversaryRepository
+import com.example.anniversarycountdown.data.AppSettings
 import com.example.anniversarycountdown.data.DisplayMode
 import com.example.anniversarycountdown.data.RepeatRule
 import com.example.anniversarycountdown.data.SettingsRepository
@@ -51,7 +53,7 @@ class AnniversaryWidgetProvider : AppWidgetProvider() {
             val pendingResult = goAsync()
             CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
                 try {
-                    AnniversaryWidgetUpdater.updateAll(context)
+                    AnniversaryWidgetUpdater.updateSingleAll(context)
                 } finally {
                     pendingResult.finish()
                 }
@@ -89,6 +91,17 @@ class AnniversaryWidgetProvider : AppWidgetProvider() {
 object AnniversaryWidgetUpdater {
     suspend fun updateAll(context: Context) {
         val manager = AppWidgetManager.getInstance(context)
+        val anniversaries = AnniversaryRepository(context).anniversaries.first()
+        val settings = SettingsRepository(context).settings.first()
+        val now = System.currentTimeMillis()
+        val singleIds = manager.getAppWidgetIds(ComponentName(context, AnniversaryWidgetProvider::class.java))
+        val twoIds = manager.getAppWidgetIds(ComponentName(context, TwoAnniversaryWidgetProvider::class.java))
+        render(context, manager, singleIds, anniversaries, settings, now)
+        TwoAnniversaryWidgetUpdater.render(context, manager, twoIds, anniversaries, settings, now)
+    }
+
+    suspend fun updateSingleAll(context: Context) {
+        val manager = AppWidgetManager.getInstance(context)
         val ids = manager.getAppWidgetIds(ComponentName(context, AnniversaryWidgetProvider::class.java))
         update(context, manager, ids)
     }
@@ -98,15 +111,22 @@ object AnniversaryWidgetUpdater {
         val anniversaries = AnniversaryRepository(context).anniversaries.first()
         val settings = SettingsRepository(context).settings.first()
         val now = System.currentTimeMillis()
+        render(context, manager, ids, anniversaries, settings, now)
+    }
+
+    internal fun render(
+        context: Context,
+        manager: AppWidgetManager,
+        ids: IntArray,
+        anniversaries: List<Anniversary>,
+        settings: AppSettings,
+        now: Long,
+    ) {
+        if (ids.isEmpty()) return
         val nearest = sortedAnniversaries(anniversaries, now)
             .firstOrNull { !it.isExpired(now) }
             ?: sortedAnniversaries(anniversaries, now).firstOrNull()
-        val darkMode = when (settings.displayMode) {
-            DisplayMode.SYSTEM -> context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK ==
-                Configuration.UI_MODE_NIGHT_YES
-            DisplayMode.LIGHT -> false
-            DisplayMode.DARK -> true
-        }
+        val darkMode = isWidgetDarkMode(context, settings)
         val palette = widgetColorPalette(
             seedArgb = widgetSeedArgb(nearest, settings.themeSeedArgb),
             darkMode = darkMode,
@@ -161,7 +181,7 @@ object AnniversaryWidgetUpdater {
         }
     }
 
-    private fun createBackground(
+    internal fun createBackground(
         manager: AppWidgetManager,
         appWidgetId: Int,
         palette: WidgetColorPalette,
@@ -187,7 +207,7 @@ object AnniversaryWidgetUpdater {
         return bitmap
     }
 
-    private fun createCategoryIcon(context: Context, iconRes: Int, tint: Int): Bitmap {
+    internal fun createCategoryIcon(context: Context, iconRes: Int, tint: Int): Bitmap {
         val size = (CATEGORY_ICON_SIZE_DP * context.resources.displayMetrics.density).roundToInt()
             .coerceAtLeast(1)
         val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
@@ -204,6 +224,14 @@ object AnniversaryWidgetUpdater {
     private const val MAX_BACKGROUND_SIZE = 512
     private const val CATEGORY_ICON_SIZE_DP = 14f
 }
+
+internal fun isWidgetDarkMode(context: Context, settings: AppSettings): Boolean =
+    when (settings.displayMode) {
+        DisplayMode.SYSTEM -> context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK ==
+            Configuration.UI_MODE_NIGHT_YES
+        DisplayMode.LIGHT -> false
+        DisplayMode.DARK -> true
+    }
 
 private fun RepeatRule.widgetLabel(): String = when (this) {
     RepeatRule.NONE -> ""

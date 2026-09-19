@@ -8,7 +8,7 @@ plugins {
     id("org.jetbrains.kotlin.plugin.serialization")
 }
 
-val appVersionCode = 1
+val appVersionCode = 2
 val buildTimestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd.HHmmss"))
 
 android {
@@ -20,7 +20,7 @@ android {
         minSdk = 26
         targetSdk = 36
         versionCode = appVersionCode
-        versionName = "1.0.0-prerelease"
+        versionName = "1.1.0-prerelease"
 
         buildConfigField("String", "BUILD_ID", "\"$buildTimestamp.$appVersionCode\"")
 

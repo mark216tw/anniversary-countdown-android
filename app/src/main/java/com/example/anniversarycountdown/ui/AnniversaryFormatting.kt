@@ -17,6 +17,17 @@ fun sortedAnniversaries(
         .thenBy { it.createdAtEpochMillis },
 )
 
+fun upcomingAnniversaries(
+    anniversaries: List<Anniversary>,
+    nowEpochMillis: Long,
+    limit: Int,
+    zoneId: ZoneId = ZoneId.systemDefault(),
+): List<Anniversary> = sortedAnniversaries(anniversaries, nowEpochMillis, zoneId)
+    .asSequence()
+    .filterNot { it.isExpired(nowEpochMillis, zoneId) }
+    .take(limit.coerceAtLeast(0))
+    .toList()
+
 fun anniversaryCountdownText(
     anniversary: Anniversary,
     nowEpochMillis: Long,

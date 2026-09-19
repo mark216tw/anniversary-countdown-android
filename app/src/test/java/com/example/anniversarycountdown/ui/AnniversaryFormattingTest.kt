@@ -33,6 +33,23 @@ class AnniversaryFormattingTest {
     }
 
     @Test
+    fun `selects only two nearest upcoming events for widget`() {
+        val expired = event("expired", now - 60_000)
+        val third = event("third", now + 15 * 60_000)
+        val second = event("second", now + 10 * 60_000)
+        val first = event("first", now + 5 * 60_000)
+
+        val result = upcomingAnniversaries(
+            listOf(expired, third, second, first),
+            now,
+            limit = 2,
+            zoneId = zone,
+        )
+
+        assertEquals(listOf("first", "second"), result.map { it.id })
+    }
+
+    @Test
     fun `formats elapsed time`() {
         assertEquals("已過 1 天 2 小時", countdownText(now - 26 * 3_600_000L, now))
     }
