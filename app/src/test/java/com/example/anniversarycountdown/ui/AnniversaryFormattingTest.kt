@@ -7,6 +7,7 @@ import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.ZoneId
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Test
 
 class AnniversaryFormattingTest {
@@ -68,6 +69,80 @@ class AnniversaryFormattingTest {
         assertEquals(
             LocalDate.of(2026, 12, 10),
             birthday.occurrence(now, zone).dateTime.toLocalDate(),
+        )
+    }
+
+    @Test
+    fun `yearly anniversary shows completed years and days since latest anniversary`() {
+        val anniversary = Anniversary(
+            id = "anniversary",
+            name = "週年",
+            dateEpochDay = LocalDate.of(2020, 10, 1).toEpochDay(),
+            createdAtEpochMillis = 0,
+            repeatRule = RepeatRule.YEARLY,
+            fixedZoneId = zone.id,
+        )
+        val beforeSixthAnniversary = LocalDateTime.of(2026, 9, 19, 10, 0)
+            .atZone(zone).toInstant().toEpochMilli()
+        val onSixthAnniversary = LocalDateTime.of(2026, 10, 1, 10, 0)
+            .atZone(zone).toInstant().toEpochMilli()
+
+        assertEquals("經過了 5 年 353 天", anniversaryElapsedText(anniversary, beforeSixthAnniversary, zone))
+        assertEquals("經過了 6 年 0 天", anniversaryElapsedText(anniversary, onSixthAnniversary, zone))
+    }
+
+    @Test
+    fun `yearly elapsed text is hidden before original date`() {
+        val anniversary = Anniversary(
+            id = "future",
+            name = "未來週年",
+            dateEpochDay = LocalDate.of(2027, 1, 1).toEpochDay(),
+            createdAtEpochMillis = 0,
+            repeatRule = RepeatRule.YEARLY,
+            fixedZoneId = zone.id,
+        )
+
+        assertNull(anniversaryElapsedText(anniversary, now, zone))
+    }
+
+    @Test
+    fun `yearly elapsed time follows leap day rule`() {
+        val february28Rule = Anniversary(
+            id = "february-28",
+            name = "閏日",
+            dateEpochDay = LocalDate.of(2024, 2, 29).toEpochDay(),
+            createdAtEpochMillis = 0,
+            repeatRule = RepeatRule.YEARLY,
+            leapDayRule = LeapDayRule.FEBRUARY_28,
+            fixedZoneId = zone.id,
+        )
+        val march1Rule = february28Rule.copy(
+            id = "march-1",
+            leapDayRule = LeapDayRule.MARCH_1,
+        )
+        val nonLeapFebruary28 = LocalDateTime.of(2025, 2, 28, 10, 0)
+            .atZone(zone).toInstant().toEpochMilli()
+
+        assertEquals("經過了 1 年 0 天", anniversaryElapsedText(february28Rule, nonLeapFebruary28, zone))
+        assertEquals("經過了 0 年 365 天", anniversaryElapsedText(march1Rule, nonLeapFebruary28, zone))
+    }
+
+    @Test
+    fun `yearly elapsed time uses fixed timezone`() {
+        val anniversary = Anniversary(
+            id = "tokyo",
+            name = "東京週年",
+            dateEpochDay = LocalDate.of(2020, 1, 1).toEpochDay(),
+            createdAtEpochMillis = 0,
+            repeatRule = RepeatRule.YEARLY,
+            fixedZoneId = "Asia/Tokyo",
+        )
+        val tokyoNewYear = LocalDateTime.of(2026, 1, 1, 0, 30)
+            .atZone(ZoneId.of("Asia/Tokyo")).toInstant().toEpochMilli()
+
+        assertEquals(
+            "經過了 6 年 0 天",
+            anniversaryElapsedText(anniversary, tokyoNewYear, ZoneId.of("America/Los_Angeles")),
         )
     }
 

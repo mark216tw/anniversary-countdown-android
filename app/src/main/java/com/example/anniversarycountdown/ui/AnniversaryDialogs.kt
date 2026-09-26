@@ -236,6 +236,21 @@ fun AnniversaryEditorScreen(
             item {
                 OptionTitle("紀念日識別色")
                 Spacer(Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    anniversaryPresetColors.forEach { preset ->
+                        ColorChoice(
+                            color = Color(preset.argb),
+                            selected = colorArgb == preset.argb,
+                            size = 36,
+                            onClick = { colorArgb = preset.argb },
+                            accessibilityLabel = preset.label,
+                        )
+                    }
+                }
+                Spacer(Modifier.height(10.dp))
                 HueColorPicker(
                     colorArgb = colorArgb,
                     selected = true,
@@ -441,7 +456,7 @@ private fun HueColorPicker(
                 onValueChangeFinished = onColorChangeFinished,
                 valueRange = 0f..360f,
                 colors = SliderDefaults.colors(
-                    thumbColor = Color(hueColor(hue)),
+                    thumbColor = Color(colorArgb),
                     activeTrackColor = Color.Transparent,
                     inactiveTrackColor = Color.Transparent,
                     activeTickColor = Color.Transparent,
@@ -575,10 +590,20 @@ private fun ColorChoice(
     selected: Boolean,
     size: Int,
     onClick: () -> Unit,
+    accessibilityLabel: String? = null,
 ) {
+    val accessibilityModifier = if (accessibilityLabel == null) {
+        Modifier
+    } else {
+        Modifier.semantics {
+            contentDescription = if (selected) "$accessibilityLabel，已選取" else accessibilityLabel
+        }
+    }
     Surface(
         onClick = onClick,
-        modifier = Modifier.size(size.dp),
+        modifier = Modifier
+            .size(size.dp)
+            .then(accessibilityModifier),
         shape = CircleShape,
         color = color,
         border = if (selected) BorderStroke(3.dp, MaterialTheme.colorScheme.onSurface) else null,

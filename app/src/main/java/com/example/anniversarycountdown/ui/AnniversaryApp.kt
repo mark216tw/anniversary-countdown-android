@@ -287,6 +287,7 @@ private fun AnniversaryCard(
 ) {
     val occurrence = anniversary.occurrence(nowEpochMillis)
     val expired = anniversary.isExpired(nowEpochMillis)
+    val elapsedText = anniversaryElapsedText(anniversary, nowEpochMillis)
     val eventColor = Color(anniversary.effectiveColorArgb)
     val lessThanAWeek = occurrence.epochMillis in nowEpochMillis..(nowEpochMillis + 7 * 86_400_000L)
     val containerColor = when {
@@ -307,7 +308,7 @@ private fun AnniversaryCard(
             Box(
                 Modifier
                     .width(6.dp)
-                    .height(116.dp)
+                    .height(if (elapsedText == null) 116.dp else 136.dp)
                     .background(eventColor),
             )
             Row(
@@ -383,6 +384,18 @@ private fun AnniversaryCard(
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.fillMaxWidth(),
                     )
+                    if (elapsedText != null) {
+                        Spacer(Modifier.height(3.dp))
+                        Text(
+                            elapsedText,
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
                 }
             }
         }

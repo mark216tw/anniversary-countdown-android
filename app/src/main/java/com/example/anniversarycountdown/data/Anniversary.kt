@@ -6,6 +6,7 @@ import java.time.LocalTime
 import java.time.YearMonth
 import java.time.ZoneId
 import java.time.ZonedDateTime
+import java.time.temporal.ChronoUnit
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -31,6 +32,11 @@ data class AnniversaryOccurrence(
     val dateTime: LocalDateTime,
     val zoneId: ZoneId,
     val epochMillis: Long,
+)
+
+data class AnniversaryElapsed(
+    val years: Int,
+    val days: Int,
 )
 
 @Serializable
@@ -82,6 +88,26 @@ data class Anniversary(
             candidate.toInstant().toEpochMilli()
         }
         return AnniversaryOccurrence(candidate.toLocalDateTime(), zone, epochMillis)
+    }
+
+    fun elapsedSinceOriginal(
+        nowEpochMillis: Long,
+        deviceZoneId: ZoneId = ZoneId.systemDefault(),
+    ): AnniversaryElapsed? {
+        if (repeatRule != RepeatRule.YEARLY) return null
+
+        val zone = calculationZone(deviceZoneId)
+        val today = java.time.Instant.ofEpochMilli(nowEpochMillis).atZone(zone).toLocalDate()
+        if (today.isBefore(date)) return null
+
+        var years = today.year - date.year
+        var latestAnniversary = annualDate(date.year + years)
+        if (latestAnniversary.isAfter(today)) {
+            years--
+            latestAnniversary = annualDate(date.year + years)
+        }
+        val days = ChronoUnit.DAYS.between(latestAnniversary, today).toInt()
+        return AnniversaryElapsed(years, days)
     }
 
     fun isExpired(

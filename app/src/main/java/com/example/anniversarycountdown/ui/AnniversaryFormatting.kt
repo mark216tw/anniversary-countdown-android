@@ -41,6 +41,15 @@ fun anniversaryCountdownText(
     return countdownText(occurrence.epochMillis, nowEpochMillis)
 }
 
+fun anniversaryElapsedText(
+    anniversary: Anniversary,
+    nowEpochMillis: Long,
+    zoneId: ZoneId = ZoneId.systemDefault(),
+): String? {
+    val elapsed = anniversary.elapsedSinceOriginal(nowEpochMillis, zoneId) ?: return null
+    return "經過了 ${elapsed.years} 年 ${elapsed.days} 天"
+}
+
 fun countdownText(targetEpochMillis: Long, nowEpochMillis: Long): String {
     val differenceMillis = targetEpochMillis - nowEpochMillis
     val totalMinutes = abs(differenceMillis) / 60_000
