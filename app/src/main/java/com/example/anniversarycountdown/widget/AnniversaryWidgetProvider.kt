@@ -22,6 +22,7 @@ import com.example.anniversarycountdown.data.AppSettings
 import com.example.anniversarycountdown.data.DisplayMode
 import com.example.anniversarycountdown.data.RepeatRule
 import com.example.anniversarycountdown.data.SettingsRepository
+import com.example.anniversarycountdown.notification.ReminderNotificationManager
 import com.example.anniversarycountdown.ui.anniversaryCountdownText
 import com.example.anniversarycountdown.ui.iconRes
 import com.example.anniversarycountdown.ui.label
@@ -167,6 +168,15 @@ object AnniversaryWidgetUpdater {
                         .filter { it.isNotEmpty() }
                         .joinToString(" · "),
                 )
+                bindReminderIcon(
+                    views = views,
+                    context = context,
+                    iconId = R.id.widget_reminder_icon,
+                    anniversary = nearest,
+                    remindersAvailable = settings.remindersEnabled && settings.hasEnabledReminderRule &&
+                        ReminderNotificationManager.notificationsAvailable(context),
+                    palette = palette,
+                )
             }
 
             val openApp = Intent(context, MainActivity::class.java)
@@ -196,14 +206,19 @@ object AnniversaryWidgetUpdater {
         val bounds = RectF(0.5f, 0.5f, width - 0.5f, height - 0.5f)
 
         canvas.drawRoundRect(bounds, CORNER_RADIUS, CORNER_RADIUS, Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = palette.background
+            color = palette.outline
             style = Paint.Style.FILL
         })
-        canvas.drawRoundRect(bounds, CORNER_RADIUS, CORNER_RADIUS, Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = palette.outline
-            style = Paint.Style.STROKE
-            strokeWidth = 1f
-        })
+        val innerBounds = RectF(bounds).apply { inset(BORDER_WIDTH, BORDER_WIDTH) }
+        canvas.drawRoundRect(
+            innerBounds,
+            CORNER_RADIUS - BORDER_WIDTH,
+            CORNER_RADIUS - BORDER_WIDTH,
+            Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = palette.background
+                style = Paint.Style.FILL
+            },
+        )
         return bitmap
     }
 
@@ -220,7 +235,42 @@ object AnniversaryWidgetUpdater {
         return bitmap
     }
 
-    private const val CORNER_RADIUS = 24f
+    internal fun bindReminderIcon(
+        views: RemoteViews,
+        context: Context,
+        iconId: Int,
+        anniversary: Anniversary,
+        remindersAvailable: Boolean,
+        palette: WidgetColorPalette,
+    ) {
+        if (!anniversary.reminderEnabled) {
+            views.setViewVisibility(iconId, View.GONE)
+            views.setContentDescription(iconId, "")
+            return
+        }
+        views.setViewVisibility(iconId, View.VISIBLE)
+        views.setImageViewBitmap(
+            iconId,
+            createCategoryIcon(
+                context,
+                if (remindersAvailable) R.drawable.ic_notifications_active else R.drawable.ic_notifications_off,
+                if (remindersAvailable) palette.accent else palette.secondaryText,
+            ),
+        )
+        views.setContentDescription(
+            iconId,
+            context.getString(
+                if (remindersAvailable) {
+                    R.string.reminder_active_description
+                } else {
+                    R.string.reminder_muted_description
+                },
+            ),
+        )
+    }
+
+    private const val CORNER_RADIUS = 22f
+    private const val BORDER_WIDTH = 1f
     private const val MAX_BACKGROUND_SIZE = 512
     private const val CATEGORY_ICON_SIZE_DP = 14f
 }

@@ -71,7 +71,7 @@
                         android:layout_height="wrap_content"
                         android:layout_marginStart="6dp"
                         android:layout_marginEnd="8dp"
-                        android:layout_toStartOf="@id/two_widget_date_1"
+                        android:layout_toStartOf="@id/two_widget_reminder_1"
                         android:layout_toEndOf="@id/two_widget_icon_1"
                         android:ellipsize="end"
                         android:includeFontPadding="false"
@@ -79,12 +79,23 @@
                         android:textSize="18sp"
                         android:textStyle="bold" />
 
+                    <ImageView
+                        android:id="@+id/two_widget_reminder_1"
+                        android:layout_width="14dp"
+                        android:layout_height="14dp"
+                        android:layout_centerVertical="true"
+                        android:layout_marginEnd="5dp"
+                        android:layout_toStartOf="@id/two_widget_date_1"
+                        android:layout_alignWithParentIfMissing="true"
+                        android:contentDescription="@null"
+                        android:visibility="gone" />
+
                     <TextView
                         android:id="@+id/two_widget_date_1"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_alignBaseline="@id/two_widget_name_1"
                         android:layout_alignParentEnd="true"
+                        android:layout_centerVertical="true"
                         android:includeFontPadding="false"
                         android:maxLines="1"
                         android:textSize="12sp" />
@@ -137,7 +148,7 @@
                         android:layout_height="wrap_content"
                         android:layout_marginStart="6dp"
                         android:layout_marginEnd="8dp"
-                        android:layout_toStartOf="@id/two_widget_date_2"
+                        android:layout_toStartOf="@id/two_widget_reminder_2"
                         android:layout_toEndOf="@id/two_widget_icon_2"
                         android:ellipsize="end"
                         android:includeFontPadding="false"
@@ -145,12 +156,23 @@
                         android:textSize="18sp"
                         android:textStyle="bold" />
 
+                    <ImageView
+                        android:id="@+id/two_widget_reminder_2"
+                        android:layout_width="14dp"
+                        android:layout_height="14dp"
+                        android:layout_centerVertical="true"
+                        android:layout_marginEnd="5dp"
+                        android:layout_toStartOf="@id/two_widget_date_2"
+                        android:layout_alignWithParentIfMissing="true"
+                        android:contentDescription="@null"
+                        android:visibility="gone" />
+
                     <TextView
                         android:id="@+id/two_widget_date_2"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_alignBaseline="@id/two_widget_name_2"
                         android:layout_alignParentEnd="true"
+                        android:layout_centerVertical="true"
                         android:includeFontPadding="false"
                         android:maxLines="1"
                         android:textSize="12sp" />

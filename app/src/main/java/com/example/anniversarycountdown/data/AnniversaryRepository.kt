@@ -5,6 +5,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.example.anniversarycountdown.widget.AnniversaryWidgetUpdater
+import com.example.anniversarycountdown.notification.ReminderScheduler
 import java.io.IOException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
@@ -35,6 +36,7 @@ class AnniversaryRepository(private val context: Context) {
                 current.filterNot { it.id == anniversary.id } + anniversary,
             )
         }
+        ReminderScheduler(context).schedule(anniversary)
         AnniversaryWidgetUpdater.updateAll(context)
     }
 
@@ -46,6 +48,7 @@ class AnniversaryRepository(private val context: Context) {
                 current.filterNot { it.id == id },
             )
         }
+        ReminderScheduler(context).cancel(id)
         AnniversaryWidgetUpdater.updateAll(context)
     }
 

@@ -15,6 +15,7 @@ import com.example.anniversarycountdown.data.Anniversary
 import com.example.anniversarycountdown.data.AnniversaryRepository
 import com.example.anniversarycountdown.data.AppSettings
 import com.example.anniversarycountdown.data.SettingsRepository
+import com.example.anniversarycountdown.notification.ReminderNotificationManager
 import com.example.anniversarycountdown.ui.anniversaryCountdownText
 import com.example.anniversarycountdown.ui.iconRes
 import com.example.anniversarycountdown.ui.upcomingAnniversaries
@@ -116,11 +117,11 @@ object TwoAnniversaryWidgetUpdater {
             } else {
                 views.setViewVisibility(R.id.two_widget_empty, View.GONE)
                 views.setViewVisibility(R.id.two_widget_event_1, View.VISIBLE)
-                bindEvent(views, context, upcoming[0], now, palette, first = true)
+                bindEvent(views, context, upcoming[0], now, palette, settings, first = true)
 
                 if (upcoming.size > 1) {
                     views.setViewVisibility(R.id.two_widget_event_2, View.VISIBLE)
-                    bindEvent(views, context, upcoming[1], now, palette, first = false)
+                    bindEvent(views, context, upcoming[1], now, palette, settings, first = false)
                 } else {
                     views.setViewVisibility(R.id.two_widget_event_2, View.INVISIBLE)
                 }
@@ -143,6 +144,7 @@ object TwoAnniversaryWidgetUpdater {
         anniversary: Anniversary,
         now: Long,
         palette: WidgetColorPalette,
+        settings: AppSettings,
         first: Boolean,
     ) {
         val occurrence = anniversary.occurrence(now)
@@ -150,6 +152,7 @@ object TwoAnniversaryWidgetUpdater {
         val nameId = if (first) R.id.two_widget_name_1 else R.id.two_widget_name_2
         val dateId = if (first) R.id.two_widget_date_1 else R.id.two_widget_date_2
         val countdownId = if (first) R.id.two_widget_countdown_1 else R.id.two_widget_countdown_2
+        val reminderId = if (first) R.id.two_widget_reminder_1 else R.id.two_widget_reminder_2
 
         views.setImageViewBitmap(
             iconId,
@@ -170,6 +173,15 @@ object TwoAnniversaryWidgetUpdater {
             },
         )
         views.setTextViewText(countdownId, anniversaryCountdownText(anniversary, now))
+        AnniversaryWidgetUpdater.bindReminderIcon(
+            views = views,
+            context = context,
+            iconId = reminderId,
+            anniversary = anniversary,
+            remindersAvailable = settings.remindersEnabled && settings.hasEnabledReminderRule &&
+                ReminderNotificationManager.notificationsAvailable(context),
+            palette = palette,
+        )
     }
 
     private val DATE_FORMATTER = DateTimeFormatter.ofPattern("M/d", Locale.TAIWAN)

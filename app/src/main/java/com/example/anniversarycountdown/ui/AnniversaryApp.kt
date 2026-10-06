@@ -1,6 +1,14 @@
 package com.example.anniversarycountdown.ui
 
+import android.Manifest
+import android.content.Context
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
+import android.provider.Settings
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -35,17 +43,22 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ExitToApp
 import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.material.icons.rounded.NotificationsActive
+import androidx.compose.material.icons.rounded.NotificationsOff
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -54,8 +67,13 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.core.content.ContextCompat
 import com.example.anniversarycountdown.data.Anniversary
 import com.example.anniversarycountdown.data.AnniversaryCategory
+import com.example.anniversarycountdown.data.AppSettings
 import com.example.anniversarycountdown.data.RepeatRule
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -76,9 +94,62 @@ private sealed interface AppDestination {
 fun AnniversaryApp(viewModel: AnniversaryViewModel, onMoveToBackground: () -> Unit) {
     val anniversaries by viewModel.anniversaries.collectAsStateWithLifecycle()
     val settings by viewModel.settings.collectAsStateWithLifecycle()
+    val notificationsAvailable by viewModel.notificationsAvailable.collectAsStateWithLifecycle()
+    val anniversariesLoaded by viewModel.anniversariesLoaded.collectAsStateWithLifecycle()
+    val settingsLoaded by viewModel.settingsLoaded.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
+    var startupNotificationCheckCompleted by rememberSaveable { mutableStateOf(false) }
+    var showNotificationGuidance by rememberSaveable { mutableStateOf(false) }
+    var guidanceRequiresSystemSettings by rememberSaveable { mutableStateOf(false) }
+    var permissionRequestFromGuidance by remember { mutableStateOf(false) }
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { granted ->
+        viewModel.refreshNotificationAvailability()
+        if (!granted && permissionRequestFromGuidance) {
+            guidanceRequiresSystemSettings = true
+            showNotificationGuidance = true
+        }
+        permissionRequestFromGuidance = false
+    }
+    val requestNotificationPermission = {
+        permissionRequestFromGuidance = false
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        } else {
+            viewModel.refreshNotificationAvailability()
+        }
+    }
     var nowEpochMillis by remember { mutableLongStateOf(System.currentTimeMillis()) }
     var destination by remember { mutableStateOf<AppDestination>(AppDestination.Main) }
     var deleteCandidate by remember { mutableStateOf<Anniversary?>(null) }
+
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) viewModel.refreshNotificationAvailability()
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
+    LaunchedEffect(
+        anniversariesLoaded,
+        settingsLoaded,
+        anniversaries,
+        settings,
+        notificationsAvailable,
+    ) {
+        if (!startupNotificationCheckCompleted && anniversariesLoaded && settingsLoaded) {
+            startupNotificationCheckCompleted = true
+            showNotificationGuidance = shouldShowNotificationGuidance(
+                anniversaries = anniversaries,
+                settings = settings,
+                dataLoaded = true,
+                notificationsAvailable = notificationsAvailable,
+            )
+        }
+    }
 
     LaunchedEffect(Unit) {
         while (true) {
@@ -101,6 +172,7 @@ fun AnniversaryApp(viewModel: AnniversaryViewModel, onMoveToBackground: () -> Un
             anniversaries = anniversaries,
             sorted = sorted,
             nowEpochMillis = nowEpochMillis,
+            remindersAvailable = settings.remindersEnabled && settings.hasEnabledReminderRule && notificationsAvailable,
             onOpenSettings = { destination = AppDestination.Settings },
             onMoveToBackground = onMoveToBackground,
             onAdd = { destination = AppDestination.Editor(null) },
@@ -111,10 +183,22 @@ fun AnniversaryApp(viewModel: AnniversaryViewModel, onMoveToBackground: () -> Un
             onThemeColorChange = viewModel::setThemeColor,
             onCustomThemeColorChange = viewModel::setCustomThemeColor,
             onDisplayModeChange = viewModel::setDisplayMode,
+            notificationsAvailable = notificationsAvailable,
+            onRemindersEnabledChange = {
+                viewModel.setRemindersEnabled(it)
+                if (it && !notificationsAvailable) requestNotificationPermission()
+            },
+            onAdvanceReminderEnabledChange = viewModel::setAdvanceReminderEnabled,
+            onAdvanceReminderDaysChange = viewModel::setAdvanceReminderDays,
+            onSameDayReminderEnabledChange = viewModel::setSameDayReminderEnabled,
+            onReminderTimeChange = viewModel::setReminderTime,
+            onRequestNotificationPermission = requestNotificationPermission,
+            onSendTestNotification = viewModel::sendTestNotification,
             onDismiss = { destination = AppDestination.Main },
         )
         is AppDestination.Editor -> AnniversaryEditorScreen(
             anniversary = currentDestination.anniversary,
+            settings = settings,
             onDismiss = { destination = AppDestination.Main },
             onSave = { draft ->
                 viewModel.save(
@@ -127,14 +211,53 @@ fun AnniversaryApp(viewModel: AnniversaryViewModel, onMoveToBackground: () -> Un
                     draft.category,
                     draft.colorArgb,
                     draft.fixedZoneId,
+                    draft.reminderEnabled,
                 )
                 destination = AppDestination.Main
             },
+            onRequestNotificationPermission = requestNotificationPermission,
             onRequestDelete = currentDestination.anniversary?.let { anniversary ->
                 {
                     destination = AppDestination.Main
                     deleteCandidate = anniversary
                 }
+            },
+        )
+    }
+
+    if (showNotificationGuidance) {
+        AlertDialog(
+            onDismissRequest = { showNotificationGuidance = false },
+            title = {
+                Text(if (guidanceRequiresSystemSettings) "開啟系統通知" else "開啟紀念日通知")
+            },
+            text = {
+                Text(
+                    if (guidanceRequiresSystemSettings) {
+                        "通知權限目前仍未開啟。請前往系統設定允許通知，才能收到已設定的紀念日提醒。"
+                    } else {
+                        "你有已啟用提醒的紀念日。允許通知後，App 才能在紀念日前與當天通知你。"
+                    },
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    showNotificationGuidance = false
+                    val permissionMissing = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                        ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
+                        PackageManager.PERMISSION_GRANTED
+                    if (!guidanceRequiresSystemSettings && permissionMissing) {
+                        permissionRequestFromGuidance = true
+                        permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                    } else {
+                        openNotificationSettings(context)
+                    }
+                }) {
+                    Text(if (guidanceRequiresSystemSettings) "前往系統設定" else "啟用通知")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showNotificationGuidance = false }) { Text("稍後") }
             },
         )
     }
@@ -157,12 +280,32 @@ fun AnniversaryApp(viewModel: AnniversaryViewModel, onMoveToBackground: () -> Un
     }
 }
 
+internal fun shouldShowNotificationGuidance(
+    anniversaries: List<Anniversary>,
+    settings: AppSettings,
+    dataLoaded: Boolean,
+    notificationsAvailable: Boolean,
+): Boolean = dataLoaded &&
+    settings.remindersEnabled &&
+    settings.hasEnabledReminderRule &&
+    anniversaries.any { it.reminderEnabled } &&
+    !notificationsAvailable
+
+private fun openNotificationSettings(context: Context) {
+    context.startActivity(
+        Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
+            putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+        },
+    )
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun MainScreen(
     anniversaries: List<Anniversary>,
     sorted: List<Anniversary>,
     nowEpochMillis: Long,
+    remindersAvailable: Boolean,
     onOpenSettings: () -> Unit,
     onMoveToBackground: () -> Unit,
     onAdd: () -> Unit,
@@ -231,7 +374,7 @@ private fun MainScreen(
                     )
                 }
                 items(sorted, key = { it.id }) { anniversary ->
-                    AnniversaryCard(anniversary, nowEpochMillis) { onEdit(anniversary) }
+                    AnniversaryCard(anniversary, nowEpochMillis, remindersAvailable) { onEdit(anniversary) }
                 }
             }
         }
@@ -283,6 +426,7 @@ private fun EmptyState(modifier: Modifier, onAdd: () -> Unit) {
 private fun AnniversaryCard(
     anniversary: Anniversary,
     nowEpochMillis: Long,
+    remindersAvailable: Boolean,
     onClick: () -> Unit,
 ) {
     val occurrence = anniversary.occurrence(nowEpochMillis)
@@ -363,6 +507,24 @@ private fun AnniversaryCard(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+                        if (anniversary.reminderEnabled) {
+                            Icon(
+                                imageVector = if (remindersAvailable) {
+                                    Icons.Rounded.NotificationsActive
+                                } else {
+                                    Icons.Rounded.NotificationsOff
+                                },
+                                contentDescription = if (remindersAvailable) {
+                                    "提醒已開啟"
+                                } else {
+                                    "提醒已設定，但通知目前關閉"
+                                },
+                                tint = if (remindersAvailable) eventColor else MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier
+                                    .padding(start = 5.dp, top = 2.dp)
+                                    .size(16.dp),
                             )
                         }
                         Spacer(Modifier.width(8.dp))

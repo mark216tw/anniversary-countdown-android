@@ -2,6 +2,8 @@ package com.example.anniversarycountdown.ui
 
 import android.app.DatePickerDialog
 import android.app.TimePickerDialog
+import android.content.Intent
+import android.provider.Settings
 import android.graphics.Color as AndroidColor
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -83,15 +85,18 @@ data class AnniversaryDraft(
     val category: AnniversaryCategory,
     val colorArgb: Int,
     val fixedZoneId: String?,
+    val reminderEnabled: Boolean,
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AnniversaryEditorScreen(
     anniversary: Anniversary?,
+    settings: AppSettings,
     onDismiss: () -> Unit,
     onSave: (AnniversaryDraft) -> Unit,
     onRequestDelete: (() -> Unit)?,
+    onRequestNotificationPermission: () -> Unit,
 ) {
     val context = LocalContext.current
     var name by remember(anniversary?.id) { mutableStateOf(anniversary?.name.orEmpty()) }
@@ -114,6 +119,9 @@ fun AnniversaryEditorScreen(
         mutableIntStateOf(anniversary?.effectiveColorArgb ?: AnniversaryColor.ROSE.argb)
     }
     var fixedTimeZone by remember(anniversary?.id) { mutableStateOf(anniversary?.fixedZoneId != null) }
+    var reminderEnabled by remember(anniversary?.id) {
+        mutableStateOf(anniversary?.reminderEnabled ?: false)
+    }
     val storedZoneId = remember(anniversary?.id) {
         anniversary?.fixedZoneId ?: ZoneId.systemDefault().id
     }
@@ -129,6 +137,7 @@ fun AnniversaryEditorScreen(
                 category = category,
                 colorArgb = colorArgb,
                 fixedZoneId = if (fixedTimeZone) storedZoneId else null,
+                reminderEnabled = reminderEnabled,
             ),
         )
     }
@@ -199,6 +208,25 @@ fun AnniversaryEditorScreen(
                     subtitle = "未指定時，當天會顯示「就是今天」",
                     checked = includesTime,
                     onCheckedChange = { includesTime = it },
+                )
+            }
+            item {
+                val rules = buildList {
+                    if (settings.advanceReminderEnabled) add("提前 ${settings.advanceReminderDays} 天")
+                    if (settings.sameDayReminderEnabled) add("當天")
+                }.joinToString("與")
+                ToggleRow(
+                    title = "啟用通知",
+                    subtitle = if (rules.isEmpty()) {
+                        "請先到設定頁啟用提醒規則"
+                    } else {
+                        "${rules}約 ${LocalTime.of(settings.reminderHour, settings.reminderMinute).format(timeFormatter)} 提醒"
+                    },
+                    checked = reminderEnabled,
+                    onCheckedChange = {
+                        reminderEnabled = it
+                        if (it) onRequestNotificationPermission()
+                    },
                 )
             }
             if (includesTime) {
@@ -277,8 +305,17 @@ fun SettingsScreen(
     onThemeColorChange: (AppThemeColor) -> Unit,
     onCustomThemeColorChange: (Int) -> Unit,
     onDisplayModeChange: (DisplayMode) -> Unit,
+    notificationsAvailable: Boolean,
+    onRemindersEnabledChange: (Boolean) -> Unit,
+    onAdvanceReminderEnabledChange: (Boolean) -> Unit,
+    onAdvanceReminderDaysChange: (Int) -> Unit,
+    onSameDayReminderEnabledChange: (Boolean) -> Unit,
+    onReminderTimeChange: (Int, Int) -> Unit,
+    onRequestNotificationPermission: () -> Unit,
+    onSendTestNotification: () -> Unit,
     onDismiss: () -> Unit,
 ) {
+    val context = LocalContext.current
     var customPreviewArgb by remember(settings.themeSeedArgb) { mutableIntStateOf(settings.themeSeedArgb) }
     val presetOrder = listOf(
         AppThemeColor.SUNFLOWER,
@@ -309,6 +346,73 @@ fun SettingsScreen(
             contentPadding = PaddingValues(start = 20.dp, top = 12.dp, end = 20.dp, bottom = 32.dp),
             verticalArrangement = Arrangement.spacedBy(18.dp),
         ) {
+            item {
+                SectionTitle("通知與提醒")
+                Spacer(Modifier.height(8.dp))
+                ToggleRow(
+                    title = "紀念日通知",
+                    subtitle = if (!settings.remindersEnabled) {
+                        "所有提醒暫停，已設定的紀念日會顯示靜音鈴鐺"
+                    } else if (notificationsAvailable) {
+                        "通知功能正常"
+                    } else {
+                        "系統通知權限未開啟"
+                    },
+                    checked = settings.remindersEnabled,
+                    onCheckedChange = onRemindersEnabledChange,
+                )
+                Spacer(Modifier.height(8.dp))
+                ToggleRow(
+                    title = "提前提醒",
+                    subtitle = "在紀念日前先通知一次",
+                    checked = settings.advanceReminderEnabled,
+                    onCheckedChange = onAdvanceReminderEnabledChange,
+                )
+                if (settings.advanceReminderEnabled) {
+                    Spacer(Modifier.height(6.dp))
+                    AdvanceDaysSelector(
+                        options = listOf(1, 3, 7, 14, 30),
+                        selected = settings.advanceReminderDays,
+                        onSelected = onAdvanceReminderDaysChange,
+                    )
+                }
+                Spacer(Modifier.height(8.dp))
+                ToggleRow(
+                    title = "當天提醒",
+                    subtitle = "在紀念日當天再通知一次",
+                    checked = settings.sameDayReminderEnabled,
+                    onCheckedChange = onSameDayReminderEnabledChange,
+                )
+                Spacer(Modifier.height(8.dp))
+                PickerRow(
+                    "通知時間（系統可能因省電延後數分鐘）",
+                    LocalTime.of(settings.reminderHour, settings.reminderMinute).format(timeFormatter),
+                ) {
+                    TimePickerDialog(
+                        context,
+                        { _, hour, minute -> onReminderTimeChange(hour, minute) },
+                        settings.reminderHour,
+                        settings.reminderMinute,
+                        true,
+                    ).show()
+                }
+                Spacer(Modifier.height(8.dp))
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                    if (!notificationsAvailable) {
+                        TextButton(onClick = onRequestNotificationPermission) { Text("允許通知") }
+                        TextButton(onClick = {
+                            context.startActivity(
+                                Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
+                                    putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+                                },
+                            )
+                        }) { Text("系統設定") }
+                    } else {
+                        TextButton(onClick = onSendTestNotification) { Text("發送測試通知") }
+                    }
+                }
+            }
+            item { HorizontalDivider() }
             item {
                 SectionTitle("顯示模式")
                 Spacer(Modifier.height(10.dp))
@@ -558,6 +662,32 @@ private fun <T> ChoiceGrid(
                     ),
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun AdvanceDaysSelector(
+    options: List<Int>,
+    selected: Int,
+    onSelected: (Int) -> Unit,
+) {
+    options.chunked(3).forEachIndexed { index, row ->
+        if (index > 0) Spacer(Modifier.height(6.dp))
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            row.forEach { days ->
+                FilterChip(
+                    selected = selected == days,
+                    onClick = { onSelected(days) },
+                    label = { Text("$days 天") },
+                    modifier = Modifier.weight(1f),
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = MaterialTheme.colorScheme.primary,
+                        selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
+                    ),
+                )
+            }
+            repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
         }
     }
 }

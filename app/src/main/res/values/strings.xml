@@ -6,4 +6,13 @@
     <string name="two_widget_title">紀念日</string>
     <string name="two_widget_description">以 4×2 版面顯示最近兩個未到期紀念日</string>
     <string name="two_widget_empty">尚無未到期紀念日，點一下開啟 App 新增</string>
+    <string name="reminder_channel_name">紀念日提醒</string>
+    <string name="reminder_channel_description">在紀念日前與當天顯示提醒</string>
+    <string name="advance_reminder_title">距離「%2$s」還有 %1$d 天</string>
+    <string name="same_day_reminder_title">今天是「%1$s」</string>
+    <string name="reminder_notification_text">日期：%1$s</string>
+    <string name="test_notification_title">測試通知成功</string>
+    <string name="test_notification_text">紀念日提醒可以正常顯示。</string>
+    <string name="reminder_active_description">提醒已開啟</string>
+    <string name="reminder_muted_description">提醒已設定，但通知目前關閉</string>
 </resources>

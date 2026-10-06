@@ -15,7 +15,16 @@ data class AppSettings(
     val displayMode: DisplayMode = DisplayMode.SYSTEM,
     val themeColor: AppThemeColor = AppThemeColor.BERRY,
     val customThemeColorArgb: Int? = null,
+    val remindersEnabled: Boolean = true,
+    val advanceReminderEnabled: Boolean = true,
+    val advanceReminderDays: Int = 7,
+    val sameDayReminderEnabled: Boolean = true,
+    val reminderHour: Int = 9,
+    val reminderMinute: Int = 0,
 ) {
     val themeSeedArgb: Int
         get() = customThemeColorArgb ?: themeColor.argb
+
+    val hasEnabledReminderRule: Boolean
+        get() = advanceReminderEnabled || sameDayReminderEnabled
 }

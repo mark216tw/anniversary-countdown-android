@@ -53,6 +53,7 @@ data class Anniversary(
     val color: AnniversaryColor = AnniversaryColor.ROSE,
     val customColorArgb: Int? = null,
     val fixedZoneId: String? = null,
+    val reminderEnabled: Boolean = false,
 ) {
     val effectiveColorArgb: Int
         get() = customColorArgb ?: color.argb
