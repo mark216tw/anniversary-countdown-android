@@ -14,6 +14,7 @@ data class ReminderSchedule(
     val type: ReminderType,
     val triggerAtMillis: Long,
     val occurrenceDate: LocalDate,
+    val advanceDays: Int? = null,
 )
 
 internal fun nextReminderSchedules(
@@ -32,32 +33,67 @@ internal fun nextReminderSchedules(
         deviceZoneId,
     ).dateTime.toLocalDate()
     val reminderTime = LocalTime.of(settings.reminderHour, settings.reminderMinute)
-    return ReminderType.entries.mapNotNull { type ->
-        val enabled = when (type) {
-            ReminderType.ADVANCE -> settings.advanceReminderEnabled
-            ReminderType.SAME_DAY -> settings.sameDayReminderEnabled
-        }
-        if (!enabled) return@mapNotNull null
 
-        var occurrenceDate = firstOccurrenceDate
-        repeat(MAX_OCCURRENCE_SEARCH) {
-            val reminderDate = when (type) {
-                ReminderType.ADVANCE -> occurrenceDate.minusDays(settings.advanceReminderDays.toLong())
-                ReminderType.SAME_DAY -> occurrenceDate
+    return buildList {
+        if (settings.advanceReminderEnabled) {
+            settings.advanceReminderDays.sorted().forEach { days ->
+                nextSchedule(
+                    anniversary,
+                    ReminderType.ADVANCE,
+                    days,
+                    firstOccurrenceDate,
+                    reminderTime,
+                    zone,
+                    deviceZoneId,
+                    nowEpochMillis,
+                )?.let(::add)
             }
-            val triggerAtMillis = reminderDate.atTime(reminderTime)
-                .atZone(zone).toInstant().toEpochMilli()
-            if (triggerAtMillis > nowEpochMillis) {
-                return@mapNotNull ReminderSchedule(type, triggerAtMillis, occurrenceDate)
-            }
-            if (anniversary.repeatRule == RepeatRule.NONE) return@mapNotNull null
-            occurrenceDate = anniversary.occurrence(
-                occurrenceDate.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli(),
-                deviceZoneId,
-            ).dateTime.toLocalDate()
         }
-        null
-    }
+        if (settings.sameDayReminderEnabled) {
+            nextSchedule(
+                anniversary,
+                ReminderType.SAME_DAY,
+                null,
+                firstOccurrenceDate,
+                reminderTime,
+                zone,
+                deviceZoneId,
+                nowEpochMillis,
+            )?.let(::add)
+        }
+    }.sortedBy { it.triggerAtMillis }
 }
 
-private const val MAX_OCCURRENCE_SEARCH = 400
+private fun nextSchedule(
+    anniversary: Anniversary,
+    type: ReminderType,
+    advanceDays: Int?,
+    firstOccurrenceDate: LocalDate,
+    reminderTime: LocalTime,
+    zone: ZoneId,
+    deviceZoneId: ZoneId,
+    nowEpochMillis: Long,
+): ReminderSchedule? {
+    var occurrenceDate = firstOccurrenceDate
+    repeat(ReminderScheduleLimits.MAX_OCCURRENCE_SEARCH) {
+        val reminderDate = when (type) {
+            ReminderType.ADVANCE -> occurrenceDate.minusDays(advanceDays!!.toLong())
+            ReminderType.SAME_DAY -> occurrenceDate
+        }
+        val triggerAtMillis = reminderDate.atTime(reminderTime)
+            .atZone(zone).toInstant().toEpochMilli()
+        if (triggerAtMillis > nowEpochMillis) {
+            return ReminderSchedule(type, triggerAtMillis, occurrenceDate, advanceDays)
+        }
+        if (anniversary.repeatRule == RepeatRule.NONE) return null
+        occurrenceDate = anniversary.occurrence(
+            occurrenceDate.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli(),
+            deviceZoneId,
+        ).dateTime.toLocalDate()
+    }
+    return null
+}
+
+private object ReminderScheduleLimits {
+    const val MAX_OCCURRENCE_SEARCH = 400
+}

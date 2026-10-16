@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.example.anniversarycountdown.widget.AnniversaryWidgetUpdater
 import com.example.anniversarycountdown.notification.ReminderScheduler
@@ -33,7 +34,11 @@ class SettingsRepository(private val context: Context) {
                 customThemeColorArgb = preferences[CUSTOM_THEME_COLOR_ARGB],
                 remindersEnabled = preferences[REMINDERS_ENABLED] ?: true,
                 advanceReminderEnabled = preferences[ADVANCE_REMINDER_ENABLED] ?: true,
-                advanceReminderDays = (preferences[ADVANCE_REMINDER_DAYS] ?: 7).coerceIn(1, 365),
+                advanceReminderDays = preferences[ADVANCE_REMINDER_DAYS_SET]
+                    ?.mapNotNull { it.toIntOrNull()?.coerceIn(1, 365) }
+                    ?.toSet()
+                    ?.takeIf { it.isNotEmpty() }
+                    ?: setOf((preferences[ADVANCE_REMINDER_DAYS] ?: 7).coerceIn(1, 365)),
                 sameDayReminderEnabled = preferences[SAME_DAY_REMINDER_ENABLED] ?: true,
                 reminderHour = (preferences[REMINDER_HOUR] ?: 9).coerceIn(0, 23),
                 reminderMinute = (preferences[REMINDER_MINUTE] ?: 0).coerceIn(0, 59),
@@ -68,8 +73,11 @@ class SettingsRepository(private val context: Context) {
         it[ADVANCE_REMINDER_ENABLED] = enabled
     }
 
-    suspend fun setAdvanceReminderDays(days: Int) = updateReminderSettings {
-        it[ADVANCE_REMINDER_DAYS] = days.coerceIn(1, 365)
+    suspend fun setAdvanceReminderDays(days: Set<Int>) = updateReminderSettings {
+        val normalized = days.map { day -> day.coerceIn(1, 365) }.toSet()
+        if (normalized.isEmpty()) return@updateReminderSettings
+        it[ADVANCE_REMINDER_DAYS_SET] = normalized.map(Int::toString).toSet()
+        it.remove(ADVANCE_REMINDER_DAYS)
     }
 
     suspend fun setSameDayReminderEnabled(enabled: Boolean) = updateReminderSettings {
@@ -97,6 +105,7 @@ class SettingsRepository(private val context: Context) {
         val REMINDERS_ENABLED = booleanPreferencesKey("reminders_enabled")
         val ADVANCE_REMINDER_ENABLED = booleanPreferencesKey("advance_reminder_enabled")
         val ADVANCE_REMINDER_DAYS = intPreferencesKey("advance_reminder_days")
+        val ADVANCE_REMINDER_DAYS_SET = stringSetPreferencesKey("advance_reminder_days_set")
         val SAME_DAY_REMINDER_ENABLED = booleanPreferencesKey("same_day_reminder_enabled")
         val REMINDER_HOUR = intPreferencesKey("reminder_hour")
         val REMINDER_MINUTE = intPreferencesKey("reminder_minute")

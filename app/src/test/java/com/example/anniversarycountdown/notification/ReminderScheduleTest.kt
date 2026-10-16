@@ -13,7 +13,7 @@ import org.junit.Test
 class ReminderScheduleTest {
     private val zone = ZoneId.of("Asia/Taipei")
     private val settings = AppSettings(
-        advanceReminderDays = 7,
+        advanceReminderDays = setOf(7),
         reminderHour = 9,
         reminderMinute = 0,
     )
@@ -31,6 +31,27 @@ class ReminderScheduleTest {
         assertEquals(listOf(ReminderType.ADVANCE, ReminderType.SAME_DAY), schedules.map { it.type })
         assertEquals(at(2026, 10, 13, 9, 0), schedules[0].triggerAtMillis)
         assertEquals(at(2026, 10, 20, 9, 0), schedules[1].triggerAtMillis)
+    }
+
+    @Test
+    fun `schedules an advance reminder for each selected day`() {
+        val multiAdvance = settings.copy(advanceReminderDays = setOf(1, 7))
+        val anniversary = event(LocalDate.of(2026, 10, 20))
+        val schedules = nextReminderSchedules(
+            anniversary,
+            multiAdvance,
+            at(2026, 10, 1, 10, 0),
+            zone,
+        )
+
+        assertEquals(
+            listOf(ReminderType.ADVANCE, ReminderType.ADVANCE, ReminderType.SAME_DAY),
+            schedules.map { it.type },
+        )
+        val advances = schedules.filter { it.type == ReminderType.ADVANCE }
+        assertEquals(listOf(7, 1), advances.map { it.advanceDays })
+        assertEquals(at(2026, 10, 13, 9, 0), advances[0].triggerAtMillis)
+        assertEquals(at(2026, 10, 19, 9, 0), advances[1].triggerAtMillis)
     }
 
     @Test
@@ -78,7 +99,7 @@ class ReminderScheduleTest {
     @Test
     fun `monthly advance reminder can overlap current same day reminder`() {
         val anniversary = event(LocalDate.of(2024, 1, 31), RepeatRule.MONTHLY)
-        val longAdvance = settings.copy(advanceReminderDays = 30)
+        val longAdvance = settings.copy(advanceReminderDays = setOf(30))
         val schedules = nextReminderSchedules(
             anniversary,
             longAdvance,

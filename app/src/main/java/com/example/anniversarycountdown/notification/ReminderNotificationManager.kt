@@ -49,9 +49,11 @@ object ReminderNotificationManager {
         type: ReminderType,
         settings: AppSettings,
         occurrenceDate: LocalDate,
+        advanceDays: Int? = null,
     ) {
         val title = if (type == ReminderType.ADVANCE) {
-            context.getString(R.string.advance_reminder_title, settings.advanceReminderDays, anniversary.name)
+            val days = advanceDays ?: settings.advanceReminderDays.minOrNull() ?: 0
+            context.getString(R.string.advance_reminder_title, days, anniversary.name)
         } else {
             context.getString(R.string.same_day_reminder_title, anniversary.name)
         }

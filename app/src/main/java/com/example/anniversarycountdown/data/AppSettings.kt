@@ -11,13 +11,15 @@ enum class AppThemeColor(val argb: Int) {
     VIOLET(0xFF6555C7.toInt()),
 }
 
+val ADVANCE_REMINDER_DAY_OPTIONS = listOf(1, 3, 7, 14, 30)
+
 data class AppSettings(
     val displayMode: DisplayMode = DisplayMode.SYSTEM,
     val themeColor: AppThemeColor = AppThemeColor.BERRY,
     val customThemeColorArgb: Int? = null,
     val remindersEnabled: Boolean = true,
     val advanceReminderEnabled: Boolean = true,
-    val advanceReminderDays: Int = 7,
+    val advanceReminderDays: Set<Int> = setOf(7),
     val sameDayReminderEnabled: Boolean = true,
     val reminderHour: Int = 9,
     val reminderMinute: Int = 0,

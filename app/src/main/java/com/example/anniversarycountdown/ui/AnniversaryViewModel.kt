@@ -114,7 +114,7 @@ class AnniversaryViewModel(application: Application) : AndroidViewModel(applicat
         viewModelScope.launch { settingsRepository.setAdvanceReminderEnabled(enabled) }
     }
 
-    fun setAdvanceReminderDays(days: Int) {
+    fun setAdvanceReminderDays(days: Set<Int>) {
         viewModelScope.launch { settingsRepository.setAdvanceReminderDays(days) }
     }
 

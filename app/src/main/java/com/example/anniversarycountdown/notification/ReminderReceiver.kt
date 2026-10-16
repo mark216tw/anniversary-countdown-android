@@ -22,6 +22,9 @@ class ReminderReceiver : BroadcastReceiver() {
             ?.getLongExtra(EXTRA_OCCURRENCE_EPOCH_DAY, 0L)
             ?.let(LocalDate::ofEpochDay)
             ?: return
+        val advanceDays = intent.takeIf { it.hasExtra(EXTRA_ADVANCE_DAYS) }
+            ?.getIntExtra(EXTRA_ADVANCE_DAYS, 0)
+            ?.takeIf { it > 0 }
         val pendingResult = goAsync()
         CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
             try {
@@ -29,11 +32,21 @@ class ReminderReceiver : BroadcastReceiver() {
                     .firstOrNull { it.id == anniversaryId }
                 val settings = SettingsRepository(context).settings.first()
                 val typeEnabled = when (type) {
-                    ReminderType.ADVANCE -> settings.advanceReminderEnabled
+                    ReminderType.ADVANCE ->
+                        settings.advanceReminderEnabled &&
+                            advanceDays != null &&
+                            advanceDays in settings.advanceReminderDays
                     ReminderType.SAME_DAY -> settings.sameDayReminderEnabled
                 }
                 if (anniversary != null && anniversary.reminderEnabled && settings.remindersEnabled && typeEnabled) {
-                    ReminderNotificationManager.showReminder(context, anniversary, type, settings, occurrenceDate)
+                    ReminderNotificationManager.showReminder(
+                        context,
+                        anniversary,
+                        type,
+                        settings,
+                        occurrenceDate,
+                        advanceDays,
+                    )
                     ReminderScheduler(context).schedule(anniversary)
                 }
             } finally {
@@ -46,5 +59,6 @@ class ReminderReceiver : BroadcastReceiver() {
         const val EXTRA_ANNIVERSARY_ID = "anniversary_id"
         const val EXTRA_REMINDER_TYPE = "reminder_type"
         const val EXTRA_OCCURRENCE_EPOCH_DAY = "occurrence_epoch_day"
+        const val EXTRA_ADVANCE_DAYS = "advance_days"
     }
 }

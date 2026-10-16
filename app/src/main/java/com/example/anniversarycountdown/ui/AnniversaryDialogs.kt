@@ -64,6 +64,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.anniversarycountdown.BuildConfig
+import com.example.anniversarycountdown.data.ADVANCE_REMINDER_DAY_OPTIONS
 import com.example.anniversarycountdown.data.Anniversary
 import com.example.anniversarycountdown.data.AnniversaryCategory
 import com.example.anniversarycountdown.data.AnniversaryColor
@@ -212,7 +213,9 @@ fun AnniversaryEditorScreen(
             }
             item {
                 val rules = buildList {
-                    if (settings.advanceReminderEnabled) add("提前 ${settings.advanceReminderDays} 天")
+                    if (settings.advanceReminderEnabled) {
+                        add("提前 ${settings.advanceReminderDays.sorted().joinToString("、")} 天")
+                    }
                     if (settings.sameDayReminderEnabled) add("當天")
                 }.joinToString("與")
                 ToggleRow(
@@ -308,7 +311,7 @@ fun SettingsScreen(
     notificationsAvailable: Boolean,
     onRemindersEnabledChange: (Boolean) -> Unit,
     onAdvanceReminderEnabledChange: (Boolean) -> Unit,
-    onAdvanceReminderDaysChange: (Int) -> Unit,
+    onAdvanceReminderDaysChange: (Set<Int>) -> Unit,
     onSameDayReminderEnabledChange: (Boolean) -> Unit,
     onReminderTimeChange: (Int, Int) -> Unit,
     onRequestNotificationPermission: () -> Unit,
@@ -364,16 +367,16 @@ fun SettingsScreen(
                 Spacer(Modifier.height(8.dp))
                 ToggleRow(
                     title = "提前提醒",
-                    subtitle = "在紀念日前先通知一次",
+                    subtitle = "可多選天數，每個天數各通知一次",
                     checked = settings.advanceReminderEnabled,
                     onCheckedChange = onAdvanceReminderEnabledChange,
                 )
                 if (settings.advanceReminderEnabled) {
                     Spacer(Modifier.height(6.dp))
                     AdvanceDaysSelector(
-                        options = listOf(1, 3, 7, 14, 30),
+                        options = ADVANCE_REMINDER_DAY_OPTIONS,
                         selected = settings.advanceReminderDays,
-                        onSelected = onAdvanceReminderDaysChange,
+                        onToggle = onAdvanceReminderDaysChange,
                     )
                 }
                 Spacer(Modifier.height(8.dp))
@@ -669,16 +672,19 @@ private fun <T> ChoiceGrid(
 @Composable
 private fun AdvanceDaysSelector(
     options: List<Int>,
-    selected: Int,
-    onSelected: (Int) -> Unit,
+    selected: Set<Int>,
+    onToggle: (Set<Int>) -> Unit,
 ) {
     options.chunked(3).forEachIndexed { index, row ->
         if (index > 0) Spacer(Modifier.height(6.dp))
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             row.forEach { days ->
                 FilterChip(
-                    selected = selected == days,
-                    onClick = { onSelected(days) },
+                    selected = days in selected,
+                    onClick = {
+                        val updated = if (days in selected) selected - days else selected + days
+                        if (updated.isNotEmpty()) onToggle(updated)
+                    },
                     label = { Text("$days 天") },
                     modifier = Modifier.weight(1f),
                     colors = FilterChipDefaults.filterChipColors(
